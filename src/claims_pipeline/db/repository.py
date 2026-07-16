@@ -60,6 +60,10 @@ def upsert_claim_and_recompute(conn: psycopg.Connection[Any], claim: ClaimEvent)
 
 
 def _recompute_provider_aggregate(conn: psycopg.Connection[Any], provider_id: str) -> None:
+    conn.execute(
+        "SELECT pg_advisory_xact_lock(hashtext(%s)::bigint)",
+        (provider_id,),
+    )
     cursor = conn.execute(
         """
         SELECT AVG(cost_efficiency), AVG(quality), COUNT(*)
