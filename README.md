@@ -118,9 +118,16 @@ docs/
 AGENTS.md            # build conventions and the human/agent division of labor
 benchmark/
   golden.seed.jsonl  # hand-verified claim → score cases (the oracle seed)
+infra/local/         # docker-compose rig (LocalStack + Postgres) and provisioning script
+src/claims_pipeline/
+  events.py          # the claim event contract (SPEC.md §1)
+  generator/         # deterministic synthetic claim load generator (SPEC.md §6)
+tests/               # unit tests plus a skippable LocalStack integration smoke test
 ```
 
 ## Status
 
-Specification phase. Contracts and decision records are in place; runtime code is
-built against them in subsequent milestones.
+Local rig in place: the claim event contract, the SNS→SQS provisioning, and a v1
+load generator (rate/count/provider distribution/outcome mix/seed) run end-to-end
+against LocalStack. Validation and scoring workers, the ranking API, and the
+generator's burst/failure-injection knobs are built in subsequent milestones.
