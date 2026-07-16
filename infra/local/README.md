@@ -23,8 +23,21 @@ Then provision the SNS topic and SQS queue (idempotent, safe to re-run):
 ./infra/local/provision.sh
 ```
 
-This creates the `claims.raw` SNS topic and the `validation.q` SQS queue, subscribed
+This creates the `claims-raw` SNS topic and the `validation-q` SQS queue, subscribed
 to the topic (SPEC.md §2).
+
+## Run the load generator
+
+Publish deterministic synthetic claim events to `claims-raw` (SPEC.md §6):
+
+```sh
+python -m claims_pipeline.generator --rate 5 --count 100 --seed 1
+```
+
+Defaults to `LOCALSTACK_ENDPOINT_URL` (or `http://localhost:4566`) and region
+`us-east-1`; override with `--endpoint-url` / `--region`. Use `--duration` instead of
+`--count` to publish for a fixed number of seconds. v1 supports only the `uniform`
+provider distribution; `burst` and `failure_injection` are not implemented yet.
 
 ## Confirm health directly
 

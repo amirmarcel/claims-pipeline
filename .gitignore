@@ -1,0 +1,26 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# local env / secrets
+.env
+.env.local
+
+# LocalStack / docker volumes
+infra/local/.localstack/
+infra/local/volumes/
+
+# editor
+.vscode/
+.idea/
+.DS_Store
+
+# benchmark run artifacts (reports themselves are committed deliberately per-run; raw logs are not)
+benchmark/reports/*.log

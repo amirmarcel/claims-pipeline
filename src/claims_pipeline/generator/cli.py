@@ -15,7 +15,7 @@ DEFAULT_ENDPOINT_URL = "http://localhost:4566"
 def build_arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="python -m claims_pipeline.generator",
-        description="Publish deterministic synthetic claim events to the claims.raw SNS topic.",
+        description="Publish deterministic synthetic claim events to the claims-raw SNS topic.",
     )
     parser.add_argument("--rate", type=float, required=True, help="events per second")
     group = parser.add_mutually_exclusive_group(required=True)

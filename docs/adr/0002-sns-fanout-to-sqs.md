@@ -30,8 +30,8 @@ of this ADR, recorded as a new one.
 
 ## Decision
 
-Producers publish to an SNS topic (`claims.raw`). The topic fans out to an SQS queue
-(`validation.q`) for the processing lane. New consumers subscribe to the topic
+Producers publish to an SNS topic (`claims-raw`). The topic fans out to an SQS queue
+(`validation-q`) for the processing lane. New consumers subscribe to the topic
 without any change to the producer. SQS provides the per-consumer buffer,
 visibility-timeout redelivery, and native dead-letter support the design relies on.
 
