@@ -77,4 +77,6 @@ docker compose -f infra/local/docker-compose.yml down -v
 ## Credentials
 
 LocalStack accepts any AWS credentials. Postgres: user `claims`, password `claims`,
-database `claims_pipeline`.
+database `claims_pipeline`. Override the connection string with
+`CLAIMS_PIPELINE_DATABASE_URL` (defaults to
+`postgresql://claims:claims@localhost:5432/claims_pipeline`).
