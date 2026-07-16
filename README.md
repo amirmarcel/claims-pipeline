@@ -88,6 +88,7 @@ The architecturally significant choices are recorded as ADRs in `docs/adr/`:
 - [ADR-0006](docs/adr/0006-python-for-workers-and-api.md) — Python for workers and the API
 - [ADR-0007](docs/adr/0007-idempotent-consumers.md) — Idempotent consumers via `claim_id`
 - [ADR-0008](docs/adr/0008-local-first-then-eks.md) — Local-first on LocalStack, then EKS
+- [ADR-0009](docs/adr/0009-raw-sql-schema-no-migration-framework.md) — Raw SQL schema, no migration framework (yet)
 
 ## Scope
 
