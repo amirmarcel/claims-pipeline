@@ -7,13 +7,16 @@ name = "claims-pipeline"
 version = "0.1.0"
 description = "Event-driven synthetic claims processing platform"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "boto3==1.43.49",
+]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8",
     "ruff>=0.6",
     "mypy>=1.11",
+    "boto3-stubs[sns,sqs]==1.43.49",
 ]
 
 [tool.setuptools.packages.find]

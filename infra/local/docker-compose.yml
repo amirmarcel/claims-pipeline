@@ -1,0 +1,37 @@
+services:
+  localstack:
+    image: localstack/localstack:3.8
+    container_name: claims-pipeline-localstack
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=sns,sqs
+      - DEBUG=0
+      - PERSISTENCE=0
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4566/_localstack/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  postgres:
+    image: postgres:16
+    container_name: claims-pipeline-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=claims
+      - POSTGRES_PASSWORD=claims
+      - POSTGRES_DB=claims_pipeline
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U claims -d claims_pipeline"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  postgres-data:
