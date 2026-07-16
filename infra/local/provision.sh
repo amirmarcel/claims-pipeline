@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Idempotent local provisioning: creates the claims-raw SNS topic and the
-# validation-q SQS queue, subscribed to the topic, against LocalStack.
-# Safe to re-run against an already-provisioned LocalStack (aws create-*
-# calls against SNS/SQS are idempotent by name/ARN).
+# validation-q, scoring-q, and validation-dlq SQS queues (validation-q
+# subscribed to the topic) against LocalStack. Safe to re-run against an
+# already-provisioned LocalStack (aws create-* calls against SNS/SQS are
+# idempotent by name/ARN).
 #
 # Names are dot-free (SPEC.md §2): SNS/SQS resource names are restricted to
 # letters, numbers, underscores, and hyphens against real AWS.
@@ -15,6 +16,8 @@ ENDPOINT_URL="${LOCALSTACK_ENDPOINT_URL:-http://localhost:4566}"
 REGION="${AWS_REGION:-us-east-1}"
 TOPIC_NAME="claims-raw"
 QUEUE_NAME="validation-q"
+SCORING_QUEUE_NAME="scoring-q"
+VALIDATION_DLQ_NAME="validation-dlq"
 
 export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-test}"
 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-test}"
@@ -30,6 +33,12 @@ queue_arn=$(aws sqs get-queue-attributes \
   --queue-url "$queue_url" \
   --attribute-names QueueArn \
   --query 'Attributes.QueueArn' --output text)
+
+# scoring-q (validation worker's forwarding target) and validation-dlq
+# (SPEC.md §2 step 3) are plain queues -- neither is subscribed to the SNS
+# topic; workers send to them directly.
+aws sqs create-queue --queue-name "$SCORING_QUEUE_NAME" >/dev/null
+aws sqs create-queue --queue-name "$VALIDATION_DLQ_NAME" >/dev/null
 
 # SQS access policy allowing the SNS topic to deliver messages to the queue.
 policy=$(cat <<EOF

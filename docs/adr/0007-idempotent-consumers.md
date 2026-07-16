@@ -26,3 +26,14 @@ usable rather than dangerous, and it is asserted directly by a Tier 1 test — f
 duplicate `claim_id`, assert the aggregate is unchanged. The cost is that scoring
 recomputes a provider's aggregate from its stored claims rather than mutating a
 counter, which is a deliberate trade of a little work for a strong invariant.
+
+Recomputing from stored claims is also what makes the aggregate safe under
+*concurrent* scoring-worker replicas processing claims for the same provider, not
+just sequential redelivery. A plain `SELECT AVG(...)` followed by an upsert would
+otherwise be a lost-update race: two transactions under READ COMMITTED can each
+read a snapshot that doesn't include the other's not-yet-committed insert, and
+whichever commits last overwrites the correct aggregate with a stale one. To close
+this, `_recompute_provider_aggregate` takes a `pg_advisory_xact_lock` keyed on a
+hash of `provider_id` before reading and upserting, serializing all recomputation
+for a given provider across concurrent transactions regardless of snapshot
+visibility. The lock is released automatically at transaction end.

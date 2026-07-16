@@ -88,6 +88,7 @@ The architecturally significant choices are recorded as ADRs in `docs/adr/`:
 - [ADR-0006](docs/adr/0006-python-for-workers-and-api.md) — Python for workers and the API
 - [ADR-0007](docs/adr/0007-idempotent-consumers.md) — Idempotent consumers via `claim_id`
 - [ADR-0008](docs/adr/0008-local-first-then-eks.md) — Local-first on LocalStack, then EKS
+- [ADR-0009](docs/adr/0009-raw-sql-schema-no-migration-framework.md) — Raw SQL schema, no migration framework (yet)
 
 ## Scope
 
@@ -122,12 +123,18 @@ infra/local/         # docker-compose rig (LocalStack + Postgres) and provisioni
 src/claims_pipeline/
   events.py          # the claim event contract (SPEC.md §1)
   generator/         # deterministic synthetic claim load generator (SPEC.md §6)
-tests/               # unit tests plus a skippable LocalStack integration smoke test
+  scoring.py         # the pure scoring/ranking core (SPEC.md §3, ADR-0003)
+  db/                # Postgres persistence: schema.sql, repository.py (ADR-0007, ADR-0009)
+  workers/           # validation and scoring workers (SPEC.md §2)
+tests/               # unit tests, golden-seed scoring tests, and skippable
+                     # LocalStack/Postgres integration tests
 ```
 
 ## Status
 
 Local rig in place: the claim event contract, the SNS→SQS provisioning, and a v1
 load generator (rate/count/provider distribution/outcome mix/seed) run end-to-end
-against LocalStack. Validation and scoring workers, the ranking API, and the
-generator's burst/failure-injection knobs are built in subsequent milestones.
+against LocalStack. The deterministic scoring core, Postgres persistence, and the
+validation and scoring workers are built and idempotent on `claim_id`. The ranking
+API, the generator's burst/failure-injection knobs, and dead-letter replay are built
+in subsequent milestones.

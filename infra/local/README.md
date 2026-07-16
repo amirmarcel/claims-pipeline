@@ -23,8 +23,17 @@ Then provision the SNS topic and SQS queue (idempotent, safe to re-run):
 ./infra/local/provision.sh
 ```
 
-This creates the `claims-raw` SNS topic and the `validation-q` SQS queue, subscribed
-to the topic (SPEC.md §2).
+This creates the `claims-raw` SNS topic, the `validation-q` SQS queue (subscribed to
+the topic), and the `scoring-q` / `validation-dlq` SQS queues (SPEC.md §2).
+
+## Apply the Postgres schema
+
+```sh
+python -c "from claims_pipeline.db import repository as r; r.apply_schema(r.connect())"
+```
+
+Creates `claim_scores` and `provider_scores` (raw SQL DDL, `src/claims_pipeline/db/schema.sql`
+— see `docs/adr/0009-raw-sql-schema-no-migration-framework.md`). Safe to re-run.
 
 ## Run the load generator
 
@@ -68,4 +77,6 @@ docker compose -f infra/local/docker-compose.yml down -v
 ## Credentials
 
 LocalStack accepts any AWS credentials. Postgres: user `claims`, password `claims`,
-database `claims_pipeline`.
+database `claims_pipeline`. Override the connection string with
+`CLAIMS_PIPELINE_DATABASE_URL` (defaults to
+`postgresql://claims:claims@localhost:5432/claims_pipeline`).
