@@ -41,14 +41,19 @@ never dropped silently and never scored.
 
 ## 2. Pipeline stages
 
-1. **Ingest.** The generator publishes claim events to SNS topic `claims.raw`.
-2. **Fan-out.** `claims.raw` fans out to SQS queue `validation.q`. (The topic, not a
+Resource names below are dot-free (`claims-raw`, not `claims.raw`): SNS topic and
+SQS queue names are restricted to letters, numbers, underscores, and hyphens, so a
+dotted name is invalid against real AWS (LocalStack was more permissive, which is
+how this went unnoticed until it was provisioned against the real constraint).
+
+1. **Ingest.** The generator publishes claim events to SNS topic `claims-raw`.
+2. **Fan-out.** `claims-raw` fans out to SQS queue `validation-q`. (The topic, not a
    direct queue, is the seam that lets future consumers subscribe without touching
    the producer — see ADR-0002.)
-3. **Validation worker.** Consumes `validation.q`. Valid claims are forwarded to SQS
-   `scoring.q`. Invalid claims go to `validation.dlq` with a reason. Consumer is
+3. **Validation worker.** Consumes `validation-q`. Valid claims are forwarded to SQS
+   `scoring-q`. Invalid claims go to `validation-dlq` with a reason. Consumer is
    idempotent on `claim_id` (ADR-0007).
-4. **Scoring worker.** Consumes `scoring.q`. Computes per-claim signals, upserts the
+4. **Scoring worker.** Consumes `scoring-q`. Computes per-claim signals, upserts the
    claim into `claim_scores`, and recomputes the provider's aggregate in
    `provider_scores`. Idempotent on `claim_id`: reprocessing the same claim must not
    change the aggregate.
@@ -191,7 +196,7 @@ The generator can emit, at a configured rate, events that exercise the failure p
 rather than the happy path:
 
 - **Invalid-but-parseable** — violates a validation rule from §1 (e.g.
-  `allowed_amount > billed_amount`). Must land in `validation.dlq` with the right
+  `allowed_amount > billed_amount`). Must land in `validation-dlq` with the right
   reason, and must not be scored.
 - **Malformed / unparseable** — not a decodable claim event at all. Must be
   dead-lettered as a poison message after the bounded receive count, never crash the

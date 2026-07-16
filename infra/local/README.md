@@ -23,7 +23,7 @@ Then provision the SNS topic and SQS queue (idempotent, safe to re-run):
 ./infra/local/provision.sh
 ```
 
-This creates the `claims.raw` SNS topic and the `validation.q` SQS queue, subscribed
+This creates the `claims-raw` SNS topic and the `validation-q` SQS queue, subscribed
 to the topic (SPEC.md §2).
 
 ## Confirm health directly

@@ -22,14 +22,14 @@ it explains a ranking, it never computes one (ADR-0003).
         synthetic claim events
                  │
                  ▼
-          SNS topic  (claims.raw)
+          SNS topic  (claims-raw)
                  │  fan-out
                  ▼                                    ┌─────────────────┐
-          SQS (validation.q) ───► Validation worker   │  KEDA           │
+          SQS (validation-q) ───► Validation worker   │  KEDA           │
                  │                       │ valid       │    ▲            │
    invalid ──────┘                       ▼             │    │ scales on  │
-   ▼                              SQS (scoring.q) ─────►│  queue depth   │
- SQS (validation.dlq)                    │             └─────────────────┘
+   ▼                              SQS (scoring-q) ─────►│  queue depth   │
+ SQS (validation-dlq)                    │             └─────────────────┘
                                          ▼
                                    Scoring worker ──► PostgreSQL
                                                        (claim_scores,

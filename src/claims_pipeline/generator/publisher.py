@@ -16,7 +16,7 @@ import boto3
 
 from claims_pipeline.events import ClaimEvent
 
-DEFAULT_TOPIC_NAME = "claims.raw"
+DEFAULT_TOPIC_NAME = "claims-raw"
 
 
 def publish_claims(

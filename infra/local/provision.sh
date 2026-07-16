@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Idempotent local provisioning: creates the claims.raw SNS topic and the
-# validation.q SQS queue, subscribed to the topic, against LocalStack.
+# Idempotent local provisioning: creates the claims-raw SNS topic and the
+# validation-q SQS queue, subscribed to the topic, against LocalStack.
 # Safe to re-run against an already-provisioned LocalStack (aws create-*
 # calls against SNS/SQS are idempotent by name/ARN).
+#
+# Names are dot-free (SPEC.md §2): SNS/SQS resource names are restricted to
+# letters, numbers, underscores, and hyphens against real AWS.
 #
 # Infra provisioning, not application code (ADR-0008: local parity via
 # LocalStack + docker-compose, same topology as EKS).
@@ -10,8 +13,8 @@ set -euo pipefail
 
 ENDPOINT_URL="${LOCALSTACK_ENDPOINT_URL:-http://localhost:4566}"
 REGION="${AWS_REGION:-us-east-1}"
-TOPIC_NAME="claims.raw"
-QUEUE_NAME="validation.q"
+TOPIC_NAME="claims-raw"
+QUEUE_NAME="validation-q"
 
 export AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID:-test}"
 export AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY:-test}"
