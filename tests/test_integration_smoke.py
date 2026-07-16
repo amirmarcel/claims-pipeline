@@ -68,9 +68,7 @@ def test_published_claim_is_receivable_on_validation_queue(queue_url: str) -> No
     config = GeneratorConfig(rate=1000.0, seed=99, count=1)
     [claim] = generate_claims(config)
 
-    sent = publish_claims(
-        [claim], rate=1000.0, endpoint_url=ENDPOINT_URL, region_name=REGION
-    )
+    sent = publish_claims([claim], rate=1000.0, endpoint_url=ENDPOINT_URL, region_name=REGION)
     assert sent == 1
 
     sqs = boto3.client("sqs", endpoint_url=ENDPOINT_URL, region_name=REGION)
