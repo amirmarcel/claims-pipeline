@@ -154,10 +154,13 @@ def test_malformed_message_redrives_to_validation_dlq_without_crashing_worker(
         )
 
     def _redriven() -> bool:
-        return bool(sqs.get_queue_attributes(
-            QueueUrl=queue_urls["validation-dlq"],
-            AttributeNames=["ApproximateNumberOfMessages"],
-        )["Attributes"]["ApproximateNumberOfMessages"] != "0")
+        return bool(
+            sqs.get_queue_attributes(
+                QueueUrl=queue_urls["validation-dlq"],
+                AttributeNames=["ApproximateNumberOfMessages"],
+            )["Attributes"]["ApproximateNumberOfMessages"]
+            != "0"
+        )
 
     # maxReceiveCount=3 (ADR-0010): repeated failed receives eventually
     # redrive the message. The local rig's VisibilityTimeout is 2s
@@ -196,9 +199,7 @@ def test_scoring_worker_poison_message_redrives_and_replay_recovers_cleanly(
         service_date="2026-01-01",
         schema_version="1.0",
     )
-    sqs.send_message(
-        QueueUrl=queue_urls["scoring-q"], MessageBody=json.dumps(claim.to_dict())
-    )
+    sqs.send_message(QueueUrl=queue_urls["scoring-q"], MessageBody=json.dumps(claim.to_dict()))
 
     # Simulate a transient downstream failure (e.g. a momentarily-unavailable
     # Postgres, or a bug that is later fixed): every call to the real upsert
@@ -229,10 +230,13 @@ def test_scoring_worker_poison_message_redrives_and_replay_recovers_cleanly(
         )
 
     def _redriven() -> bool:
-        return bool(sqs.get_queue_attributes(
-            QueueUrl=queue_urls["scoring-dlq"],
-            AttributeNames=["ApproximateNumberOfMessages"],
-        )["Attributes"]["ApproximateNumberOfMessages"] != "0")
+        return bool(
+            sqs.get_queue_attributes(
+                QueueUrl=queue_urls["scoring-dlq"],
+                AttributeNames=["ApproximateNumberOfMessages"],
+            )["Attributes"]["ApproximateNumberOfMessages"]
+            != "0"
+        )
 
     assert _run_worker_until(_run_once, is_done=_redriven), (
         "message was not redriven to scoring-dlq within the round budget"

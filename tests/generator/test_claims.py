@@ -57,9 +57,7 @@ def test_failure_injection_none_is_identical_to_pre_session_3_output() -> None:
 
 
 def test_malformed_fraction_produces_undecodable_bodies() -> None:
-    config = GeneratorConfig(
-        rate=10.0, seed=42, count=50, failure_injection={"malformed": 1.0}
-    )
+    config = GeneratorConfig(rate=10.0, seed=42, count=50, failure_injection={"malformed": 1.0})
     events = generate_claims(config)
     assert len(events) == 50
     for event in events:
@@ -82,9 +80,7 @@ def test_invalid_but_parseable_fraction_violates_a_validation_rule() -> None:
 
 
 def test_duplicate_fraction_reuses_earlier_claim_ids() -> None:
-    config = GeneratorConfig(
-        rate=10.0, seed=42, count=50, failure_injection={"duplicate": 1.0}
-    )
+    config = GeneratorConfig(rate=10.0, seed=42, count=50, failure_injection={"duplicate": 1.0})
     events = generate_claims(config)
     claim_ids = []
     for event in events:

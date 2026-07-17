@@ -69,8 +69,7 @@ def main(argv: list[str] | None = None) -> int:
         for record in records:
             claim_part = f" claim_id={record.claim_id}" if record.claim_id else ""
             print(
-                f"[{record.kind}]{claim_part} "
-                f"message_id={record.message_id} reason={record.reason}"
+                f"[{record.kind}]{claim_part} message_id={record.message_id} reason={record.reason}"
             )
         print(f"{len(records)} message(s) on {args.dlq}")
         return 0
