@@ -248,9 +248,7 @@ def judge_faithfulness(
         model=JUDGE_MODEL_ID,
         max_tokens=MAX_TOKENS,
         system=_JUDGE_SYSTEM_PROMPT,
-        messages=[
-            {"role": "user", "content": _build_judge_message(grounded_facts, explanation)}
-        ],
+        messages=[{"role": "user", "content": _build_judge_message(grounded_facts, explanation)}],
     )
 
     if response.stop_reason == "max_tokens":

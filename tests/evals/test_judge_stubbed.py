@@ -97,9 +97,7 @@ def test_judge_does_not_raise_when_reasoning_field_is_missing() -> None:
             {
                 "faithful": False,
                 "score": 0.4,
-                "violations": [
-                    "Unsupported causal claim: '...' is not present in grounded_facts"
-                ],
+                "violations": ["Unsupported causal claim: '...' is not present in grounded_facts"],
             }
         )
     )
@@ -126,8 +124,7 @@ def test_judge_parses_rich_unfaithful_verdict_with_nested_quotes_in_violations()
         "violations": [
             "Unsupported causal claim: 'the provider's low score stems from a "
             "documented billing dispute' is not present in grounded_facts",
-            "Introduces a comparison to \"industry average\" that grounded_facts "
-            "does not contain",
+            'Introduces a comparison to "industry average" that grounded_facts does not contain',
         ],
         "reasoning": (
             'The explanation invents a specific cause ("a documented billing '

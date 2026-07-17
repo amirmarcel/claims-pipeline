@@ -196,9 +196,7 @@ def load_baseline(path: Path) -> dict[str, Any] | None:
     return cast(dict[str, Any], json.loads(path.read_text()))
 
 
-def check_regression(
-    score: float, baseline: dict[str, Any], threshold: float
-) -> tuple[bool, str]:
+def check_regression(score: float, baseline: dict[str, Any], threshold: float) -> tuple[bool, str]:
     """Returns (passed, message). Tier 3 gates only on regression below the
     committed baseline minus a tolerance threshold (docs/EVAL_PLAN.md) --
     unlike Tier 1/2, a single low-scoring case is not itself a failure.
