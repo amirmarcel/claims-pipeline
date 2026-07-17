@@ -45,6 +45,19 @@ it explains a ranking, it never computes one (ADR-0003).
 Runs locally end-to-end on LocalStack + Postgres via docker-compose; deploys to EKS
 with KEDA scaling workers on SQS queue depth.
 
+**The autoscaling, proven on a real run** (kind + real KEDA, ADR-0004, ADR-0014): a
+generator burst drives `validation-q` depth to a peak of 8,782 messages, both worker
+Deployments scale from 1 to 5 replicas, the backlog drains, and replica counts step
+back down to 1 as each queue empties.
+
+![Queue depth, replica count, and throughput over a real KEDA autoscaling run](docs/images/session7_autoscaling_run.png)
+
+Full numbers and reproduction steps: `benchmark/reports/session7_load_test_report.md`.
+A distributed trace of one claim's SNS→SQS→validation→scoring→Postgres path, captured
+from a real OpenTelemetry/Jaeger run:
+
+![Jaeger waterfall: publish → validate → score → Postgres write for one claim](docs/images/session7_trace_waterfall.png)
+
 **Deployment surface (ADR-0008, ADR-0013):** the same container image and application
 code run at every stage below — only configuration (an endpoint URL, a region, a
 secret's value) changes between them.
@@ -126,6 +139,7 @@ The architecturally significant choices are recorded as ADRs in `docs/adr/`:
 - [ADR-0011](docs/adr/0011-fastapi-ranking-api-and-two-layer-guardrail-tests.md) — FastAPI for the ranking API; two-layer Tier 2 guardrail tests
 - [ADR-0012](docs/adr/0012-tier3-faithfulness-eval-harness.md) — Tier 3 faithfulness eval harness: judge model, baseline, and threshold
 - [ADR-0013](docs/adr/0013-kind-for-local-eks-as-artifact.md) — kind for local Kubernetes validation; EKS as a reviewable, unapplied artifact
+- [ADR-0014](docs/adr/0014-keda-autoscaling-tuning.md) — KEDA autoscaling tuning: target depth, replica bounds, scale-down pacing
 
 ## API surface
 
@@ -161,6 +175,53 @@ than a missing feature:
 - **Orchestration/transformation tooling and streaming analytics** — downstream of a
   correct pipeline, not part of proving one.
 
+### What was cut across all seven sessions, and why
+
+Scope discipline was itself a deliverable, not just a constraint. In order:
+
+- **Four-worker sprawl, never built.** The pipeline stays at two stages
+  (validate, score) the whole way through, even once Kubernetes and
+  autoscaling made "just add an enrichment worker" cheap to demonstrate.
+  Adding lanes with no real work to do would pad the architecture diagram
+  without adding distributed-systems signal — the SNS topic is the proven
+  seam (ADR-0002); a third subscriber is additive by construction whenever
+  it's actually needed, not before.
+- **The de-identification rabbit hole, sidestepped.** Real PHI
+  de-identification is an accuracy-graded ML problem with its own eval
+  suite — a different project. Synthetic data sidesteps it entirely
+  (ADR-0005) so every session's effort went to the distributed-systems
+  claims (async processing, fan-out, autoscaling, idempotency, dead-letter
+  recovery) this repo actually makes.
+- **Kafka/Kinesis, never adopted.** SNS→SQS fan-out was chosen and re-argued
+  against a log broker explicitly (ADR-0002) at the start, then never
+  revisited under pressure — ordering/replay were never a real requirement
+  this system's traffic shape produced, including under Session 7's burst.
+- **EKS, documented and reviewed, never applied.** A live EKS control plane
+  costs ~$73/month with no production traffic behind it (ADR-0013). Every
+  cloud-shaped concern (SNS/SQS/DLQ topology, least-privilege IRSA per
+  workload, RDS for Postgres, and now KEDA) is written as reviewable
+  Terraform/manifests and validated on **kind** — a real local Kubernetes
+  cluster, not a simulation — instead. The autoscaling graphs above are
+  captured from that kind run, honestly labeled as such: the mechanism and
+  scaler logic are identical on EKS (`infra/eks/README.md`'s KEDA section),
+  only the cluster differs.
+- **Full production OpenTelemetry instrumentation, deliberately narrowed
+  (Session 7).** Threading W3C trace-context propagation through every
+  `MessageAttributes` hop inside the worker/publisher modules, plus
+  auto-instrumenting boto3/psycopg, would have touched most of the worker
+  test suite's mocked-`sqs` call signatures for a session whose budget was
+  mostly the KEDA/load-test work. Shipped instead: a standalone script
+  (`benchmark/trace_one_claim.py`) that drives the exact same application
+  logic (`events.validate`, `repository.upsert_claim_and_recompute`) for one
+  real claim, manually wrapped in OTel spans — a genuine four-span trace of
+  real code (screenshot above), without a production-code refactor whose
+  payoff this session had no way to validate against real usage.
+- **Scale-to-zero (`minReplicaCount: 0`), not used this session.** Real KEDA
+  capability, arguably a better fit for a genuinely bursty workload — set
+  aside so the load-test graphs don't have to explain a cold-start gap at
+  t=0 (ADR-0014). A real tuning candidate for whoever picks up ADR-0014's
+  flagged values next.
+
 ## Repository layout
 
 ```
@@ -172,14 +233,18 @@ AGENTS.md            # build conventions and the human/agent division of labor
 benchmark/
   golden.seed.jsonl        # hand-verified claim → score cases (the Tier 1 oracle seed)
   faithfulness.eval.jsonl  # grounded_facts cases for the Tier 3 faithfulness harness (ADR-0012)
-  reports/                 # Tier 3 report + committed baseline (git-tracked, ADR-0012)
+  monitor_scaling.py       # Session 7: samples queue depth/replicas/throughput during a load test
+  plot_scaling.py          # Session 7: renders the sampled CSV into docs/images/ graphs
+  trace_one_claim.py       # Session 7: one-claim OTel trace demo (see README's Scope section)
+  reports/                 # Tier 3 report + baseline (ADR-0012); Session 7 load-test report + CSV
+docs/images/         # committed graphs and the trace waterfall screenshot (Session 7)
 infra/local/         # docker-compose rig (LocalStack + Postgres) and provisioning script
-infra/k8s/           # kind cluster config, manifests, and runbook for the local K8s lift
+infra/k8s/           # kind cluster config, manifests, KEDA ScaledObjects (ADR-0014), and runbook
 infra/eks/           # EKS Terraform artifact (SNS/SQS/DLQs, IRSA IAM, RDS) -- not applied
 Dockerfile           # shared image for the API and both workers (infra/k8s/README.md)
 src/claims_pipeline/
   events.py          # the claim event contract (SPEC.md §1)
-  generator/         # deterministic synthetic claim load generator (SPEC.md §6)
+  generator/         # deterministic synthetic claim load generator (SPEC.md §6, burst: ADR-0014)
   scoring.py         # the pure scoring/ranking core (SPEC.md §3, ADR-0003)
   db/                # Postgres persistence: schema.sql, repository.py (ADR-0007, ADR-0009)
   workers/           # validation and scoring workers; ack discipline (SPEC.md §2, §5, ADR-0010)
@@ -227,5 +292,20 @@ limits and liveness/readiness probes, and the existing test suite passing unmodi
 against the kind deployment by config alone (`docs/adr/0013-*`, `infra/k8s/README.md`).
 An EKS Terraform artifact (`infra/eks/`) mirrors the same SNS/SQS/DLQ topology with
 least-privilege IRSA IAM and RDS for Postgres; it validates and formats cleanly but is
-not applied against a live account this session. KEDA queue-depth autoscaling and the
-generator's burst/load-test knobs are Session 7.
+not applied against a live account this session.
+
+**Session 7 (final) closes the project out.** KEDA is installed on the kind cluster
+and scales both workers on real SQS queue depth (ADR-0004, ADR-0014); the generator's
+last deferred knob, `burst` (a step change in publish rate at an offset, SPEC.md §6),
+is wired up and is what drives the load test. A real load-test run — 10,100 events,
+`--rate 10 --burst-rate 250 --burst-offset 10` — is captured end-to-end: peak
+`validation-q` depth 8,782 messages, both worker Deployments scaling 1→5 replicas and
+back to 1 as the backlog drains (graph above; full numbers in
+`benchmark/reports/session7_load_test_report.md`). A real four-span OpenTelemetry
+trace of one claim's SNS→SQS→validation→scoring→Postgres path is captured via a local
+Jaeger instance (waterfall above; `benchmark/trace_one_claim.py`, scope narrowed from
+full production instrumentation — see the Scope section). The project is
+feature-complete against its original plan: every SPEC.md §6 generator knob is built,
+every ADR-numbered architectural decision has a corresponding implementation, and the
+full pipeline is proven, end to end, on a real (local) Kubernetes cluster under real
+autoscaling load.
