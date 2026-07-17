@@ -48,18 +48,33 @@ with KEDA scaling workers on SQS queue depth.
 ## Failure scenario
 
 The system is designed around what happens when processing goes wrong, not only when
-it goes right. The end-to-end recovery path (specified in `docs/SPEC.md` §5 and
-ADR-0007):
+it goes right. Two failure classes exist, and they are kept conceptually and
+mechanically distinct (`docs/SPEC.md` §5, ADR-0007, ADR-0010):
 
-1. A worker fails on a message (crash, or an unprocessable/poison payload).
-2. The message's visibility timeout expires and SQS redelivers it.
-3. Redelivery repeats up to a bounded receive count.
-4. On exceeding that count, the message is redriven to the dead-letter queue with
-   structured context (the reason, the source queue, the receive count).
-5. An operator inspects the dead-letter queue and, once the cause is addressed,
-   replays the message back onto the source queue with the replay utility.
-6. Because every consumer is **idempotent on `claim_id`**, replay cannot double-count
-   a claim into a provider's aggregate — reprocessing converges to the same state.
+- **Business-invalid.** A claim decodes fine but fails an `events.validate` rule
+  (e.g. `allowed_amount > billed_amount`). The validation worker routes it directly
+  to `validation-dlq` with a structured reason it authors itself — this is not a
+  redrive, and it's never scored.
+- **Poison / processing failure.** A message that fails to even decode, or that
+  raises unexpectedly mid-process (a bug, a transient downstream outage). This is
+  where SQS's own redrive policy does the work:
+
+  1. A worker fails on a message and does **not** delete it (ack discipline, not a
+     hand-rolled retry loop).
+  2. The message's visibility timeout expires and SQS redelivers it.
+  3. Redelivery repeats up to `maxReceiveCount = 3` (ADR-0010).
+  4. On exceeding that count, SQS itself redrives the message to the matching
+     dead-letter queue — `validation-q` → `validation-dlq`, `scoring-q` →
+     `scoring-dlq` — with no application-level backoff involved.
+  5. An operator inspects the dead-letter queue (`python -m claims_pipeline.replay
+     --dlq <name> --dry-run`) and, once the cause is addressed, replays the message
+     back onto the source queue (`python -m claims_pipeline.replay --dlq <name>
+     --source-queue <queue>`).
+  6. Because every consumer is **idempotent on `claim_id`**, replay cannot
+     double-count a claim into a provider's aggregate — reprocessing converges to
+     the same state. (A genuinely undecodable body has no corrected form to
+     replay byte-for-byte; the dry-run inspection is what surfaces it for a human
+     to address at the source, not a guarantee that replay alone repairs it.)
 
 This is why idempotency is a hard invariant rather than a nice-to-have: it is what
 makes dead-letter replay safe.
@@ -89,6 +104,7 @@ The architecturally significant choices are recorded as ADRs in `docs/adr/`:
 - [ADR-0007](docs/adr/0007-idempotent-consumers.md) — Idempotent consumers via `claim_id`
 - [ADR-0008](docs/adr/0008-local-first-then-eks.md) — Local-first on LocalStack, then EKS
 - [ADR-0009](docs/adr/0009-raw-sql-schema-no-migration-framework.md) — Raw SQL schema, no migration framework (yet)
+- [ADR-0010](docs/adr/0010-sqs-native-redrive-and-visibility-backoff.md) — SQS-native redrive policy; visibility timeout as the only backoff
 
 ## Scope
 
@@ -125,7 +141,8 @@ src/claims_pipeline/
   generator/         # deterministic synthetic claim load generator (SPEC.md §6)
   scoring.py         # the pure scoring/ranking core (SPEC.md §3, ADR-0003)
   db/                # Postgres persistence: schema.sql, repository.py (ADR-0007, ADR-0009)
-  workers/           # validation and scoring workers (SPEC.md §2)
+  workers/           # validation and scoring workers; ack discipline (SPEC.md §2, §5, ADR-0010)
+  replay/            # dead-letter inspection and replay CLI (SPEC.md §5, ADR-0007)
 tests/               # unit tests, golden-seed scoring tests, and skippable
                      # LocalStack/Postgres integration tests
 ```
@@ -135,6 +152,10 @@ tests/               # unit tests, golden-seed scoring tests, and skippable
 Local rig in place: the claim event contract, the SNS→SQS provisioning, and a v1
 load generator (rate/count/provider distribution/outcome mix/seed) run end-to-end
 against LocalStack. The deterministic scoring core, Postgres persistence, and the
-validation and scoring workers are built and idempotent on `claim_id`. The ranking
-API, the generator's burst/failure-injection knobs, and dead-letter replay are built
-in subsequent milestones.
+validation and scoring workers are built and idempotent on `claim_id`. The
+reliability layer is in place: SQS-native redrive policies (`maxReceiveCount=3`,
+ADR-0010), correct worker ack discipline, the generator's `failure_injection` knob
+(invalid-but-parseable / malformed / duplicate), and the `python -m
+claims_pipeline.replay` dead-letter inspection/replay CLI, all exercised end-to-end
+against real LocalStack + Postgres. The ranking API, EKS/KEDA autoscaling, and the
+generator's burst knob are built in subsequent milestones.
