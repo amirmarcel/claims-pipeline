@@ -24,8 +24,8 @@ it explains a ranking, it never computes one (ADR-0003).
                  ▼
           SNS topic  (claims-raw)
                  │  fan-out
-                 ▼                                    ┌─────────────────┐
-          SQS (validation-q) ───► Validation worker   │  KEDA           │
+                 ▼                                     ┌─────────────────┐
+          SQS (validation-q) ───► Validation worker    │  KEDA           │
                  │                       │ valid       │    ▲            │
    invalid ──────┘                       ▼             │    │ scales on  │
    ▼                              SQS (scoring-q) ─────►│  queue depth   │
