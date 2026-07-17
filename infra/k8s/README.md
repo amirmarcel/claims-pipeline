@@ -155,9 +155,56 @@ live inside the kind cluster's own control plane, so deleting the cluster
 removes them too -- nothing to separately undo on the LocalStack/Postgres
 containers.
 
-## What's deliberately not here (Session 7)
+## 10. KEDA autoscaling (Session 7)
 
-- KEDA / any `ScaledObject` -- the Deployments are autoscaling-ready
-  (ServiceAccount, resource requests, no in-process retry logic to conflict
-  with a scaler) but replicas is a fixed count.
-- The generator's `burst` knob and any load-test tooling.
+```sh
+helm repo add kedacore https://kedacore.github.io/charts
+helm install keda kedacore/keda --namespace keda --create-namespace
+kubectl -n keda wait --for=condition=Available deployment --all --timeout=120s
+kubectl apply -f infra/k8s/20-keda-scaledobjects.yaml
+```
+
+Creates a `TriggerAuthentication` (LocalStack's `test`/`test` static
+credentials -- real AWS/EKS would use pod identity against the same
+per-workload IRSA role instead, see `infra/eks/README.md`) and a
+`ScaledObject` per worker Deployment, scaling on `ApproximateNumberOfMessages`
+for `validation-q`/`scoring-q` respectively. Target depth, replica bounds,
+and scale-down pacing are ADR-0014's flagged tuning values, validated
+against one real load-test run below, not a production traffic shape.
+
+```sh
+kubectl -n claims-pipeline get scaledobject
+kubectl -n claims-pipeline get hpa   # KEDA creates one HPA per ScaledObject
+```
+
+## 11. Load test (Session 7)
+
+```sh
+python -m claims_pipeline.generator \
+  --rate 10 --duration 50 --burst-rate 250 --burst-offset 10 \
+  --seed 43 --endpoint-url http://localhost:4566
+```
+
+Run `benchmark/monitor_scaling.py` concurrently to capture queue
+depth/replica count/throughput, and `benchmark/plot_scaling.py` on the
+resulting CSV for the graph -- see `benchmark/reports/session7_load_test_report.md`
+for the full reproduction steps and the results of the run this repo commits.
+
+**A standalone-consumer gotcha this session hit**: anything that manually
+`receive_message`s from `validation-q`/`scoring-q` outside the deployed
+workers (a debugging script, `benchmark/trace_one_claim.py`) races the
+in-cluster pods for the same messages. Scaling the Deployments to 0 isn't
+enough by itself once a `ScaledObject` exists -- KEDA's underlying HPA
+enforces `minReplicaCount` and recreates the pod. Pause the `ScaledObject`s
+first:
+
+```sh
+kubectl -n claims-pipeline annotate scaledobject \
+  validation-worker-scaledobject scoring-worker-scaledobject \
+  autoscaling.keda.sh/paused="true" --overwrite
+kubectl -n claims-pipeline scale deploy validation-worker scoring-worker --replicas=0
+# ...run the standalone consumer...
+kubectl -n claims-pipeline annotate scaledobject \
+  validation-worker-scaledobject scoring-worker-scaledobject \
+  autoscaling.keda.sh/paused-
+```

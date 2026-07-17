@@ -1,0 +1,118 @@
+# KEDA autoscaling (ADR-0004, ADR-0014): workers scale on SQS queue depth,
+# never CPU. The KEDA operator itself is a Helm install
+# (`helm install keda kedacore/keda --namespace keda`, infra/k8s/README.md
+# §KEDA), not part of this manifest set -- it's a cluster add-on, same as
+# the EKS side documents in infra/eks/README.md's "KEDA (Session 7)" section.
+#
+# Credentials: LocalStack accepts any access key/secret ("test"/"test",
+# the same convention infra/local/provision.sh uses); this Secret exists
+# only so the aws-sqs-queue scaler's TriggerAuthentication has something to
+# reference. On EKS this TriggerAuthentication would instead use pod
+# identity (the same IRSA role each worker already assumes, infra/eks/iam.tf)
+# per KEDA's `identityOwner: operator` / pod-identity pattern -- swapping
+# authentication is config, not a manifest rewrite.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: keda-localstack-credentials
+  namespace: claims-pipeline
+stringData:
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+---
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: sqs-trigger-auth
+  namespace: claims-pipeline
+spec:
+  secretTargetRef:
+    - parameter: awsAccessKeyID
+      name: keda-localstack-credentials
+      key: AWS_ACCESS_KEY_ID
+    - parameter: awsSecretAccessKey
+      name: keda-localstack-credentials
+      key: AWS_SECRET_ACCESS_KEY
+---
+# Target/threshold values below are Session 7's recommendation, flagged for
+# review (ADR-0014) -- they are the tuning knobs ADR-0004 named as a real
+# judgment call (too sensitive -> thrash; too loose -> slow drain):
+#   - queueLength: 50    -- messages per replica before scaling adds one more.
+#     Sized against observed single-pod throughput against local Postgres
+#     (see benchmark/reports/) so a burst produces a visible multi-step
+#     scale-up rather than jumping straight to maxReplicaCount.
+#   - maxReplicaCount: 5 -- enough headroom to visibly demonstrate scale-up
+#     on a burst without over-provisioning a laptop-sized kind cluster.
+#   - minReplicaCount: 1 (not 0) -- because it's >0, KEDA delegates scaling
+#     entirely to the standard Kubernetes HPA it creates underneath, which
+#     makes `cooldownPeriod`/`pollingInterval` on this ScaledObject inert
+#     (KEDA warns on apply); the HPA's own sync loop (~15s, cluster-wide,
+#     not configurable per-object) and `behavior.scaleDown` below are what
+#     actually govern pacing. minReplicaCount=0 would restore those two
+#     fields and let workers scale to zero on an empty queue, which is more
+#     realistic for a bursty workload -- not used here so a pod is always
+#     warm to receive the load test's opening messages without a cold-start
+#     gap in the graphs.
+#   - behavior.scaleDown.stabilizationWindowSeconds: 30 -- HPA defaults this
+#     to 300s (5 minutes), which would make the "queue drains, replicas
+#     scale back down" half of the story impractical to capture in one
+#     sitting. 30s is short enough to observe scale-down within a load-test
+#     run while still averaging over a few consecutive queue-depth samples
+#     (the HPA's controller-manager sync period) instead of reacting to one.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: validation-worker-scaledobject
+  namespace: claims-pipeline
+spec:
+  scaleTargetRef:
+    name: validation-worker
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 30
+          policies:
+            - type: Pods
+              value: 1
+              periodSeconds: 30
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: sqs-trigger-auth
+      metadata:
+        queueURL: http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/validation-q
+        awsEndpoint: http://sqs.us-east-1.localhost.localstack.cloud:4566
+        awsRegion: us-east-1
+        queueLength: "50"
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: scoring-worker-scaledobject
+  namespace: claims-pipeline
+spec:
+  scaleTargetRef:
+    name: scoring-worker
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 30
+          policies:
+            - type: Pods
+              value: 1
+              periodSeconds: 30
+  triggers:
+    - type: aws-sqs-queue
+      authenticationRef:
+        name: sqs-trigger-auth
+      metadata:
+        queueURL: http://sqs.us-east-1.localhost.localstack.cloud:4566/000000000000/scoring-q
+        awsEndpoint: http://sqs.us-east-1.localhost.localstack.cloud:4566
+        awsRegion: us-east-1
+        queueLength: "50"

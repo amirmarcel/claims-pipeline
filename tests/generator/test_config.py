@@ -1,6 +1,6 @@
 import pytest
 
-from claims_pipeline.generator.config import GeneratorConfig
+from claims_pipeline.generator.config import BurstConfig, GeneratorConfig
 
 
 def test_requires_exactly_one_of_count_or_duration() -> None:
@@ -52,3 +52,31 @@ def test_failure_injection_accepts_a_valid_configuration() -> None:
         "malformed": 0.1,
         "duplicate": 0.1,
     }
+
+
+def test_burst_config_rejects_negative_offset() -> None:
+    with pytest.raises(ValueError, match="offset must be >= 0"):
+        BurstConfig(offset=-1.0, rate=10.0)
+
+
+def test_burst_config_rejects_non_positive_rate() -> None:
+    with pytest.raises(ValueError, match="rate must be > 0"):
+        BurstConfig(offset=1.0, rate=0.0)
+
+
+def test_burst_requires_duration_not_count() -> None:
+    with pytest.raises(ValueError, match="burst requires duration"):
+        GeneratorConfig(rate=10.0, seed=1, count=5, burst=BurstConfig(offset=1.0, rate=50.0))
+
+
+def test_burst_offset_must_be_before_duration_ends() -> None:
+    with pytest.raises(ValueError, match="burst offset must be < duration"):
+        GeneratorConfig(rate=10.0, seed=1, duration=5.0, burst=BurstConfig(offset=5.0, rate=50.0))
+
+
+def test_event_count_accounts_for_burst_schedule() -> None:
+    # 5s at 10/s (=50) + 5s at 50/s (=250) = 300
+    config = GeneratorConfig(
+        rate=10.0, seed=1, duration=10.0, burst=BurstConfig(offset=5.0, rate=50.0)
+    )
+    assert config.event_count == 300
