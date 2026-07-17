@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-07-17T06:01:14.474289+00:00",
+  "generated_at": "2026-07-17T06:24:19.452825+00:00",
   "eval_set_size": 10,
   "faithfulness_score": 1.0,
   "faithful_count": 10,
@@ -21,12 +21,12 @@
         },
         "neighbor_below": null
       },
-      "explanation": "Provider P-001 holds rank 2 with a provider score of 0.7, based on a quality score of 0.75 and a cost efficiency of 0.65 across 2 claims. It sits just below the provider ranked above it, P-002, which has a higher provider score of 1.0. There is no provider ranked below P-001 in this comparison.",
+      "explanation": "Provider P-001 holds rank 2 with a provider score of 0.7, based on a quality measure of 0.75 and a cost efficiency of 0.65 across 2 claims. It ranks just below P-002, which has a higher provider score of 1.0. There is no neighbor ranked below P-001 in this set.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All quantitative claims (rank 2, score 0.7, quality 0.75, cost efficiency 0.65, 2 claims, neighbor P-002 at 1.0, no neighbor below) match grounded_facts exactly, and no unsupported facts are introduced."
+        "reasoning": "All numbers (rank 2, score 0.7, quality 0.75, cost efficiency 0.65, 2 claims, neighbor P-002 at 1.0) match grounded_facts, and the ordering/no-lower-neighbor claims are consistent with the data."
       },
       "clusters": []
     },
@@ -45,12 +45,12 @@
           "provider_score": 0.7
         }
       },
-      "explanation": "Provider P-002 holds rank 1 with a provider score of 1.0, built on a quality of 1.0 and a cost efficiency of 1.0 across 1 claim. There is no provider ranked above it, and the neighbor directly below is P-001 with a provider score of 0.7.",
+      "explanation": "Provider P-002 holds rank 1 with a provider score of 1.0, based on 1 claim. Its quality and cost efficiency both stand at 1.0, contributing to that top score. There is no provider ranked above P-002, while the provider directly below is P-001 with a provider score of 0.7.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All quantitative claims (score 1.0, quality 1.0, cost efficiency 1.0, 1 claim, rank 1, no neighbor above, neighbor below P-001 at 0.7) match grounded_facts, and no unsupported facts are introduced."
+        "reasoning": "All numbers (rank 1, score 1.0, 1 claim, quality 1.0, cost efficiency 1.0, neighbor P-001 at 0.7, no neighbor above) match grounded_facts and no unsupported claims are introduced."
       },
       "clusters": []
     },
@@ -66,12 +66,12 @@
         "neighbor_above": null,
         "neighbor_below": null
       },
-      "explanation": "Provider P-100 holds rank 1 with a provider score of 0.55, based on a quality measure of 0.5 and a cost efficiency of 0.6 across 4 claims. There is no neighbor listed above or below this provider in the ranking.",
+      "explanation": "Provider P-100 holds rank 1 with an overall provider score of 0.55, based on 4 claims. Its quality score is 0.5 and its cost efficiency is 0.6. There is no neighbor ranked above or below listed for comparison.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All numbers (rank 1, score 0.55, quality 0.5, cost efficiency 0.6, 4 claims) match grounded_facts, and the absence of neighbors is correctly stated with no unsupported claims."
+        "reasoning": "All quantitative claims (rank 1, score 0.55, 4 claims, quality 0.5, cost efficiency 0.6) match grounded_facts, and the statement about no neighbors is supported by the null values."
       },
       "clusters": []
     },
@@ -93,12 +93,12 @@
           "provider_score": 0.28
         }
       },
-      "explanation": "Provider P-050 holds rank 9 with a provider score of 0.3, placing it between P-049 above (score 0.32) and P-051 below (score 0.28). Its score reflects a cost efficiency of 0.6 and a quality measure of 0.0, based on 6 claims. The narrow gaps to its neighbors indicate closely clustered scores at this position in the ranking.",
+      "explanation": "Provider P-050 holds rank 9 with a provider score of 0.3, placing it between P-049 above (score 0.32) and P-051 below (score 0.28). Its position reflects a cost-efficiency measure of 0.6 and a quality measure of 0.0 across 6 claims. The narrow score gaps to its neighbors indicate it sits closely between them in the final ranking.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All numbers (score 0.3, rank 9, neighbor scores 0.32/0.28, cost efficiency 0.6, quality 0.0, 6 claims) match grounded_facts, and the ordering statements are correct with no unsupported claims."
+        "reasoning": "All numbers (rank 9, score 0.3, neighbor scores 0.32 and 0.28, cost-efficiency 0.6, quality 0.0, 6 claims) match grounded_facts, and no unsupported causal claims are introduced."
       },
       "clusters": []
     },
@@ -120,12 +120,12 @@
           "provider_score": 0.58
         }
       },
-      "explanation": "Provider P-021 holds rank 12 with a provider score of 0.6, placing it between P-020 above (score 0.62) and P-022 below (score 0.58). Its score reflects a cost efficiency of 1.0 alongside a lower quality measure of 0.2, based on a claim count of 3. This positioning reflects where its score falls relative to its immediate neighbors.",
+      "explanation": "Provider P-021 holds rank 12 with an overall provider score of 0.6, based on 3 claims. Its cost efficiency is strong at 1.0, while its quality score is lower at 0.2. This places it just below P-020, which scored 0.62, and just above P-022, which scored 0.58.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All numbers (rank 12, score 0.6, neighbors 0.62/0.58, cost efficiency 1.0, quality 0.2, claim count 3) match grounded_facts, and no unsupported claims are introduced."
+        "reasoning": "All numbers (rank 12, score 0.6, 3 claims, cost efficiency 1.0, quality 0.2) and neighbor orderings (P-020 at 0.62 above, P-022 at 0.58 below) match grounded_facts exactly with no unsupported claims."
       },
       "clusters": []
     },
@@ -147,12 +147,12 @@
           "provider_score": 0.705
         }
       },
-      "explanation": "Provider P-777 holds rank 40 with a provider score of 0.71, reflecting a quality score of 0.72 and a cost efficiency of 0.7 across 341 claims. It sits just below provider P-776, which scored 0.715, and just above provider P-778, which scored 0.705. The narrow score gaps between these three providers explain why P-777 falls into this particular position in the ranking.",
+      "explanation": "Provider P-777 holds rank 40 with a provider score of 0.71, reflecting a quality score of 0.72 and a cost efficiency of 0.7 across 341 claims. Its score places it just below the neighbor above, P-776, which scored 0.715, and just above the neighbor below, P-778, which scored 0.705. The narrow gaps between these three scores explain why P-777 falls into this position in the ranking.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All numbers (rank 40, score 0.71, quality 0.72, cost efficiency 0.7, 341 claims, neighbor scores 0.715 and 0.705) and ordering statements match grounded_facts, and no unsupported claims are introduced."
+        "reasoning": "All numbers (rank 40, score 0.71, quality 0.72, cost efficiency 0.7, 341 claims, neighbor scores 0.715 and 0.705) match grounded_facts, and the ordering claims are consistent with the data."
       },
       "clusters": []
     },
@@ -174,12 +174,12 @@
           "provider_score": 0.654
         }
       },
-      "explanation": "Provider P-333 holds rank 25 with a provider score of 0.6543, reflecting a quality measure of 0.6297 and a cost efficiency of 0.6789 across its 17 claims. It sits just below neighbor P-332, which scored 0.6544, and just above neighbor P-334, which scored 0.654. The narrow gaps between these scores explain why P-333 falls in this position.",
+      "explanation": "Provider P-333 holds rank 25 with a provider score of 0.6543, reflecting a quality measure of 0.6297 and a cost efficiency of 0.6789 across 17 claims. It sits just below P-332, which scored slightly higher at 0.6544, and just above P-334, which scored 0.654. The narrow gaps between these scores explain why P-333 falls between these two neighboring providers in the ranking.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All numbers (rank 25, score 0.6543, quality 0.6297, cost efficiency 0.6789, 17 claims, neighbor scores 0.6544 and 0.654) match grounded_facts, and the ordering statements are correct with no unsupported claims."
+        "reasoning": "All quantitative claims (rank 25, scores 0.6543/0.6544/0.654, quality 0.6297, cost efficiency 0.6789, 17 claims) match grounded_facts, and the ordering relative to neighbors is consistent with the stated values."
       },
       "clusters": []
     },
@@ -198,12 +198,12 @@
         },
         "neighbor_below": null
       },
-      "explanation": "Provider P-900 holds rank 50 with a provider score of 0.1, placing it at the bottom of the ranking with no neighbor below it. Its position reflects a quality score of 0.05 and a cost efficiency of 0.15 across 2 claims. The provider directly above it, P-899, has a slightly higher provider score of 0.12.",
+      "explanation": "Provider P-900 holds rank 50 with a provider score of 0.1, placing it last among the ranked providers since there is no neighbor below it. Its position reflects a quality score of 0.05 and a cost efficiency of 0.15, drawn from a claim count of 2. Just above it sits provider P-899, whose slightly higher provider score of 0.12 keeps it ranked ahead of P-900.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All numbers (rank 50, score 0.1, quality 0.05, cost efficiency 0.15, 2 claims, neighbor P-899 at 0.12) match grounded_facts, and the null neighbor_below supports the 'no neighbor below' claim."
+        "reasoning": "All quantitative claims (rank 50, score 0.1, quality 0.05, cost efficiency 0.15, claim count 2, neighbor P-899 at 0.12) match grounded_facts, and the last-place and ordering statements are consistent with neighbor_below being null and the neighbor scores."
       },
       "clusters": []
     },
@@ -225,12 +225,12 @@
           "provider_score": 0.95
         }
       },
-      "explanation": "Provider P-005 holds rank 3 with a provider score of 1.0, based on 1 claim and top marks of 1.0 for both quality and cost efficiency. It ties in score with the provider immediately above it, P-004, which also has a score of 1.0. The provider directly below, P-006, scores slightly lower at 0.95.",
+      "explanation": "Provider P-005 holds rank 3 with a provider score of 1.0, reflecting a perfect quality rating of 1.0 and a cost efficiency of 1.0 across its single claim. It is tied in score with the provider ranked just above it, P-004, which also has a score of 1.0. The provider ranked just below, P-006, trails slightly with a score of 0.95.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All numbers (rank 3, score 1.0, 1 claim, quality 1.0, cost efficiency 1.0, neighbors P-004 at 1.0 and P-006 at 0.95) match grounded_facts, and no unsupported claims are introduced."
+        "reasoning": "All numbers (score 1.0, quality 1.0, cost efficiency 1.0, rank 3, single claim, neighbor scores) and ordering statements match grounded_facts exactly with no unsupported claims."
       },
       "clusters": []
     },
@@ -252,12 +252,12 @@
           "provider_score": 0.79
         }
       },
-      "explanation": "Provider P-010 holds rank 11 with a provider score of 0.8, reflecting a quality score of 0.85 and a cost efficiency of 0.75 across 5 claims. It sits just below neighbor P-005, which also has a provider score of 0.8, and just above neighbor P-011, which has a provider score of 0.79.",
+      "explanation": "Provider P-010 holds rank 11 with a provider score of 0.8, supported by a quality measure of 0.85 and a cost efficiency of 0.75 across 5 claims. Its score of 0.8 matches the 0.8 held by the neighbor above it, P-005, and sits just ahead of the neighbor below, P-011, which scored 0.79. This narrow spacing of scores places P-010 at rank 11 within the ordering.",
       "verdict": {
         "faithful": true,
         "score": 1.0,
         "violations": [],
-        "reasoning": "All numbers (rank 11, provider score 0.8, quality 0.85, cost efficiency 0.75, 5 claims) and neighbor orderings/scores match grounded_facts exactly, with no unsupported claims."
+        "reasoning": "All quantitative claims (rank 11, score 0.8, quality 0.85, cost efficiency 0.75, 5 claims, neighbor scores 0.8 and 0.79) match grounded_facts, and no unsupported facts are introduced."
       },
       "clusters": []
     }

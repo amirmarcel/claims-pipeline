@@ -60,12 +60,60 @@ established for Tier 2:
 `python -m claims_pipeline.evals --write-baseline` against the ten-case eval set
 above with the live judge (Session 5, 2026-07-17): every case scored a perfect 1.0 —
 the explanation model introduced no ungrounded numbers or unsupported claims on any
-case in this set. The threshold is a tolerance band, not an expectation of future
-perfection: CI (`python -m claims_pipeline.evals --check-baseline`) fails only if a
-future run's aggregate score drops more than `0.05` below `1.0`, i.e. below `0.95`.
-This is a starting judgment call, not a proof that `0.05` is the correct sensitivity
-— it should be revisited once real prompt or model changes produce a non-perfect run
-to calibrate against.
+case in this set. **The perfect scores are real, not an artifact of the judge-parser
+bug described below**: that bug only ever raised on a verdict with `faithful: false`
+(a benign-case verdict without violations always includes every field, since there's
+nothing extra to explain), so it could not have silently converted a real violation
+into a passing case — the failure mode was a crash, not a false positive. Re-run
+after the parser fix (below) with a fresh baseline write: still `1.0000` across all
+ten cases. The threshold is a tolerance band, not an expectation of future perfection:
+CI (`python -m claims_pipeline.evals --check-baseline`) fails only if a future run's
+aggregate score drops more than `0.05` below `1.0`, i.e. below `0.95`. This is a
+starting judgment call, not a proof that `0.05` is the correct sensitivity — it
+should be revisited once real prompt or model changes produce a non-perfect run to
+calibrate against.
+
+### Amendment (Session 5, same day): judge parser bug
+
+The first version of `judge.py` parsed the verdict by requiring all four keys
+(`faithful`, `score`, `violations`, `reasoning`) to be present, or raising a generic
+`ValueError`. In production this crashed intermittently — and specifically on the
+case that matters most: a real judge response of `{"faithful": false, "score": 0.4,
+"violations": ["Unsupported causal claim: '...' is not present in grounded_facts"]}`
+with no top-level `reasoning` key raised "judge response did not match the expected
+verdict shape" instead of returning the (correct) unfaithful verdict. The harness
+crashed exactly when the judge caught something — the opposite of what it exists to
+prove.
+
+**First choice, not taken: `output_config.format` (structured outputs).** Having the
+API enforce the JSON schema server-side is the correct long-term fix — it removes
+free-form parsing (and this bug class) entirely. This repo pins `anthropic==0.75.0` (`pyproject.toml`), and a live call
+with `output_config` against that version fails with `TypeError: Messages.create()
+got an unexpected keyword argument 'output_config'` — the installed SDK predates the
+parameter. The latest available release at the time of this session is `0.117.0`;
+the exact minimum version that adds `output_config` support wasn't pinned down, only
+that `0.75.0` doesn't have it. Bumping a pinned dependency mid-session, for a repo whose AGENTS.md
+states "Dependencies pinned. Reproducible builds are a requirement, not a
+preference," is a decision for a human to make, not a drive-by fix bundled into a bug
+report. **Flagging for approval:** bump `anthropic` to a version supporting
+`output_config` (`client.messages.parse()` / `output_config.format`) and wire
+`judge.py`'s already-defined `_VERDICT_SCHEMA` through it, which would make this
+entire bug class server-side-impossible rather than client-side-tolerated.
+
+**What shipped instead:** `judge.py`'s `_parse_verdict` now treats `reasoning` as
+optional (defaults to `""`) — it is explanatory only, not part of the verdict signal
+(`faithful`/`score`/`violations` are still required and still raise, now as a
+distinct `JudgeParseError(ValueError)` rather than a bare `ValueError`, so a genuine
+parse failure is distinguishable in logs from a flaky-looking generic error). JSON
+extraction is also hardened (`_extract_json_object`) to tolerate a response wrapped
+in prose or a markdown code fence, in case the model doesn't return a bare object.
+`MAX_TOKENS` was raised 512 → 1024 so a verdict with several long `violations`
+entries has room to complete. Regression coverage added to
+`tests/evals/test_judge_stubbed.py`: the exact missing-`reasoning` shape from the bug
+report, a rich verdict with nested single/double quotes inside `violations` and
+`reasoning`, and a markdown-fenced response. Re-verified against the live judge:
+`test_meta_eval_live.py` + `test_runner_live.py` run three times in a row, all
+passing — the intermittent crash did not recur.
 
 **CI wiring**: a new `faithfulness-eval` job in `.github/workflows/ci.yml`, separate
 from `lint-and-test`, runs `python -m claims_pipeline.evals --check-baseline` with

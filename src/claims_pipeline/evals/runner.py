@@ -22,7 +22,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, cast
 
-from claims_pipeline.evals.judge import FaithfulnessVerdict, judge_faithfulness
+from claims_pipeline.evals.judge import (
+    FaithfulnessVerdict,
+    JudgeAnthropicClientLike,
+    judge_faithfulness,
+)
 from claims_pipeline.explanation.client import AnthropicClientLike, generate_explanation
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -128,7 +132,7 @@ def run_eval_set(
     cases: list[dict[str, Any]],
     *,
     explanation_client: AnthropicClientLike | None,
-    judge_client: AnthropicClientLike | None,
+    judge_client: JudgeAnthropicClientLike | None,
 ) -> EvalReport:
     """Generate one explanation and one judgment per case, then aggregate.
     Both clients are injectable so this function runs, deterministically,
