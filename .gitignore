@@ -22,5 +22,12 @@ infra/local/volumes/
 .idea/
 .DS_Store
 
+# Terraform (infra/eks/) -- local plan/init artifacts and state, never
+# committed. .terraform.lock.hcl IS committed (Terraform's own convention).
+infra/eks/.terraform/
+infra/eks/*.tfstate
+infra/eks/*.tfstate.*
+infra/eks/*.tfplan
+
 # benchmark run artifacts (reports themselves are committed deliberately per-run; raw logs are not)
 benchmark/reports/*.log

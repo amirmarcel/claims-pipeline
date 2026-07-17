@@ -45,6 +45,24 @@ it explains a ranking, it never computes one (ADR-0003).
 Runs locally end-to-end on LocalStack + Postgres via docker-compose; deploys to EKS
 with KEDA scaling workers on SQS queue depth.
 
+**Deployment surface (ADR-0008, ADR-0013):** the same container image and application
+code run at every stage below — only configuration (an endpoint URL, a region, a
+secret's value) changes between them.
+
+```
+LocalStack + host processes  →  real local Kubernetes (kind)  →  EKS (Terraform artifact)
+   Sessions 1-5, docker-compose      infra/k8s/, this session       infra/eks/, not applied
+```
+
+The kind stage is validated by actually running it: pods come up healthy, the
+generator publishes, the in-cluster workers consume and score, and the ranking API
+serves reads through a NodePort — see `infra/k8s/README.md`. The EKS stage is a
+reviewable Terraform artifact (`SNS`/`SQS`/DLQs mirroring `infra/local/provision.sh`,
+least-privilege IRSA per workload, RDS for Postgres) that `terraform validate` and
+`fmt -check` pass; it is not applied against a live account — see `infra/eks/README.md`
+and ADR-0013 for why, and for the scoping decisions flagged along the way (existing
+cluster assumed rather than provisioned, RDS vs. in-cluster Postgres, state backend).
+
 ## Failure scenario
 
 The system is designed around what happens when processing goes wrong, not only when
@@ -107,6 +125,7 @@ The architecturally significant choices are recorded as ADRs in `docs/adr/`:
 - [ADR-0010](docs/adr/0010-sqs-native-redrive-and-visibility-backoff.md) — SQS-native redrive policy; visibility timeout as the only backoff
 - [ADR-0011](docs/adr/0011-fastapi-ranking-api-and-two-layer-guardrail-tests.md) — FastAPI for the ranking API; two-layer Tier 2 guardrail tests
 - [ADR-0012](docs/adr/0012-tier3-faithfulness-eval-harness.md) — Tier 3 faithfulness eval harness: judge model, baseline, and threshold
+- [ADR-0013](docs/adr/0013-kind-for-local-eks-as-artifact.md) — kind for local Kubernetes validation; EKS as a reviewable, unapplied artifact
 
 ## API surface
 
@@ -155,6 +174,9 @@ benchmark/
   faithfulness.eval.jsonl  # grounded_facts cases for the Tier 3 faithfulness harness (ADR-0012)
   reports/                 # Tier 3 report + committed baseline (git-tracked, ADR-0012)
 infra/local/         # docker-compose rig (LocalStack + Postgres) and provisioning script
+infra/k8s/           # kind cluster config, manifests, and runbook for the local K8s lift
+infra/eks/           # EKS Terraform artifact (SNS/SQS/DLQs, IRSA IAM, RDS) -- not applied
+Dockerfile           # shared image for the API and both workers (infra/k8s/README.md)
 src/claims_pipeline/
   events.py          # the claim event contract (SPEC.md §1)
   generator/         # deterministic synthetic claim load generator (SPEC.md §6)
@@ -199,5 +221,11 @@ guardrail tests (groundedness, injection resistance, non-empty success, ranking
 purity — ADR-0011). Tier 3 faithfulness evals are built: a judged eval set
 (`benchmark/faithfulness.eval.jsonl`), an LLM-as-judge harness with a committed
 baseline (`docs/adr/0012-*`), and a meta-eval proving the judge catches known-bad
-explanations. EKS/KEDA autoscaling and the generator's burst knob are built in
-subsequent milestones.
+explanations. The full pipeline runs on real local Kubernetes (kind): containerized
+API and workers, a documented reachability path to LocalStack/Postgres, resource
+limits and liveness/readiness probes, and the existing test suite passing unmodified
+against the kind deployment by config alone (`docs/adr/0013-*`, `infra/k8s/README.md`).
+An EKS Terraform artifact (`infra/eks/`) mirrors the same SNS/SQS/DLQ topology with
+least-privilege IRSA IAM and RDS for Postgres; it validates and formats cleanly but is
+not applied against a live account this session. KEDA queue-depth autoscaling and the
+generator's burst/load-test knobs are Session 7.

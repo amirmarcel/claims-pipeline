@@ -28,6 +28,14 @@ dev = [
 [tool.setuptools.packages.find]
 where = ["src"]
 
+[tool.setuptools.package-data]
+# schema.sql is read at runtime (db/repository.py) but setuptools excludes
+# non-.py files from a built wheel by default -- needed so `pip install .`
+# (the container build) doesn't silently drop it. Latent packaging gap,
+# unrelated to K8s app code; surfaced here because Session 6 is the first
+# time this repo builds a wheel instead of running from an editable install.
+claims_pipeline = ["db/schema.sql"]
+
 [tool.ruff]
 line-length = 100
 target-version = "py312"

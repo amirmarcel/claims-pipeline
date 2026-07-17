@@ -1,0 +1,50 @@
+# Validation worker (SPEC.md §2 step 3). No autoscaling wired up yet -- KEDA
+# ScaledObjects are Session 7; replicas is a fixed count here on purpose, but
+# nothing about this Deployment (probes, resources, ServiceAccount) needs to
+# change when a ScaledObject is added later, it just starts managing replicas.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: validation-worker
+  namespace: claims-pipeline
+  labels:
+    app: validation-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: validation-worker
+  template:
+    metadata:
+      labels:
+        app: validation-worker
+    spec:
+      serviceAccountName: claims-pipeline
+      containers:
+        - name: validation-worker
+          image: claims-pipeline:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "claims_pipeline.workers.validation"]
+          envFrom:
+            - configMapRef:
+                name: claims-pipeline-config
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          # No HTTP surface on a queue worker, so liveness reads the
+          # heartbeat file touch_heartbeat() writes on every poll cycle
+          # (src/claims_pipeline/workers/__init__.py) -- confirms the poll
+          # loop is actually iterating, not just that the process exists.
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - 'test $(( $(date +%s) - $(stat -c %Y /tmp/claims-pipeline-worker-heartbeat 2>/dev/null || echo 0) )) -lt 60'
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5

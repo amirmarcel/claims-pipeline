@@ -1,0 +1,18 @@
+# Non-secret config (ADR-0008: the app talks to AWS/Postgres through
+# standard clients pointed at an endpoint, so local/kind/EKS differ only in
+# these values, never in code). The DSN and ANTHROPIC_API_KEY are secrets --
+# see 02-secret.example.yaml and infra/k8s/README.md for how to create them.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: claims-pipeline-config
+  namespace: claims-pipeline
+data:
+  AWS_REGION: "us-east-1"
+  # In-cluster Service DNS for the LocalStack container attached to the kind
+  # network by connect-local-services.sh -- see that script for why.
+  LOCALSTACK_ENDPOINT_URL: "http://localstack.claims-pipeline.svc.cluster.local:4566"
+  # Dummy static credentials LocalStack accepts unconditionally (matches
+  # infra/local/provision.sh); not a real AWS account.
+  AWS_ACCESS_KEY_ID: "test"
+  AWS_SECRET_ACCESS_KEY: "test"

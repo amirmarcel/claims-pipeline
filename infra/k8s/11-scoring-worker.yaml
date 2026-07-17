@@ -1,0 +1,50 @@
+# Scoring worker (SPEC.md §2 step 4). See 10-validation-worker.yaml for the
+# autoscaling-readiness and heartbeat-probe notes; identical shape here.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: scoring-worker
+  namespace: claims-pipeline
+  labels:
+    app: scoring-worker
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: scoring-worker
+  template:
+    metadata:
+      labels:
+        app: scoring-worker
+    spec:
+      serviceAccountName: claims-pipeline
+      containers:
+        - name: scoring-worker
+          image: claims-pipeline:local
+          imagePullPolicy: IfNotPresent
+          command: ["python", "-m", "claims_pipeline.workers.scoring"]
+          envFrom:
+            - configMapRef:
+                name: claims-pipeline-config
+          env:
+            - name: CLAIMS_PIPELINE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: claims-pipeline-secrets
+                  key: database-url
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - 'test $(( $(date +%s) - $(stat -c %Y /tmp/claims-pipeline-worker-heartbeat 2>/dev/null || echo 0) )) -lt 60'
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5

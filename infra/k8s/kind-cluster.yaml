@@ -1,0 +1,18 @@
+# kind cluster config for Session 6's local Kubernetes lift (ADR-0013).
+# Single node is enough to prove the topology genuinely runs on Kubernetes --
+# multi-node adds nothing this session needs and isn't the thing being
+# validated (that's Session 7's autoscaling/load-test territory).
+#
+# extraPortMappings exposes the API's NodePort (30080) on localhost, so the
+# host can curl the ranking API directly without a `kubectl port-forward`
+# process running in the background -- the simplest reach-from-host option
+# for a single-node local cluster.
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: claims-pipeline
+nodes:
+  - role: control-plane
+    extraPortMappings:
+      - containerPort: 30080
+        hostPort: 8000
+        protocol: TCP

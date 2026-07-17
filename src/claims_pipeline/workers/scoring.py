@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 from typing import Any
 
 import boto3
@@ -27,6 +28,7 @@ import psycopg
 
 from claims_pipeline.db import repository
 from claims_pipeline.events import ClaimEvent
+from claims_pipeline.workers import touch_heartbeat
 
 logger = logging.getLogger(__name__)
 
@@ -84,6 +86,7 @@ def run(
     with repository.connect(dsn) as conn:
         empty_polls = 0
         while idle_polls_before_exit is None or empty_polls < idle_polls_before_exit:
+            touch_heartbeat()
             response = sqs.receive_message(
                 QueueUrl=scoring_url,
                 MaxNumberOfMessages=10,
@@ -97,3 +100,14 @@ def run(
             empty_polls = 0
             for message in messages:
                 handle_message(sqs, conn, message, scoring_url=scoring_url)
+
+
+if __name__ == "__main__":
+    # Container/deployment entrypoint: `python -m claims_pipeline.workers.scoring`.
+    # Config comes entirely from the environment (ADR-0008); `dsn=None` lets
+    # `repository.default_dsn()` read CLAIMS_PIPELINE_DATABASE_URL itself, the
+    # same variable the API and integration tests already use.
+    run(
+        endpoint_url=os.environ.get("LOCALSTACK_ENDPOINT_URL", "http://localhost:4566"),
+        region_name=os.environ.get("AWS_REGION", "us-east-1"),
+    )

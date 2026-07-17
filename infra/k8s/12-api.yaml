@@ -1,0 +1,87 @@
+# Ranking API (SPEC.md §4). Only this Deployment needs ANTHROPIC_API_KEY --
+# the explanation endpoint is the sole caller of the model (ADR-0003).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+  namespace: claims-pipeline
+  labels:
+    app: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api
+  template:
+    metadata:
+      labels:
+        app: api
+    spec:
+      serviceAccountName: claims-pipeline
+      containers:
+        - name: api
+          image: claims-pipeline:local
+          imagePullPolicy: IfNotPresent
+          command:
+            [
+              "uvicorn",
+              "claims_pipeline.api.app:app",
+              "--host",
+              "0.0.0.0",
+              "--port",
+              "8000",
+            ]
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: claims-pipeline-config
+          env:
+            - name: CLAIMS_PIPELINE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: claims-pipeline-secrets
+                  key: database-url
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: claims-pipeline-secrets
+                  key: anthropic-api-key
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          # A pure read over provider_scores (SPEC.md §4) -- never touches
+          # the model (ADR-0003), so it's safe and cheap as a health check.
+          readinessProbe:
+            httpGet:
+              path: /providers/ranking?limit=1
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /providers/ranking?limit=1
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api
+  namespace: claims-pipeline
+spec:
+  type: NodePort
+  selector:
+    app: api
+  ports:
+    - port: 8000
+      targetPort: 8000
+      # Matches kind-cluster.yaml's extraPortMappings (hostPort 8000 ->
+      # nodePort 30080), so the API is reachable at localhost:8000 on the
+      # host with no `kubectl port-forward` process needed.
+      nodePort: 30080
