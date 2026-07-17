@@ -21,7 +21,7 @@ from claims_pipeline.scoring import cost_efficiency, provider_score, quality
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
-DEFAULT_DSN = "postgresql://claims:claims@localhost:5432/claims_pipeline"
+DEFAULT_DSN = "postgresql://claims:claims@localhost:5433/claims_pipeline"
 
 
 def default_dsn() -> str:

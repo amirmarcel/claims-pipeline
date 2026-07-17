@@ -46,7 +46,7 @@ DUPLICATE_CASE = _load_case("duplicate-claim-id-no-double-count")
 def _postgres_reachable(timeout: float = 0.5) -> bool:
     parsed = urlparse(DSN)
     host = parsed.hostname or "localhost"
-    port = parsed.port or 5432
+    port = parsed.port or 5433
     try:
         with socket.create_connection((host, port), timeout=timeout):
             return True
