@@ -106,6 +106,7 @@ The architecturally significant choices are recorded as ADRs in `docs/adr/`:
 - [ADR-0009](docs/adr/0009-raw-sql-schema-no-migration-framework.md) — Raw SQL schema, no migration framework (yet)
 - [ADR-0010](docs/adr/0010-sqs-native-redrive-and-visibility-backoff.md) — SQS-native redrive policy; visibility timeout as the only backoff
 - [ADR-0011](docs/adr/0011-fastapi-ranking-api-and-two-layer-guardrail-tests.md) — FastAPI for the ranking API; two-layer Tier 2 guardrail tests
+- [ADR-0012](docs/adr/0012-tier3-faithfulness-eval-harness.md) — Tier 3 faithfulness eval harness: judge model, baseline, and threshold
 
 ## API surface
 
@@ -150,7 +151,9 @@ docs/
   adr/               # architecture decision records
 AGENTS.md            # build conventions and the human/agent division of labor
 benchmark/
-  golden.seed.jsonl  # hand-verified claim → score cases (the oracle seed)
+  golden.seed.jsonl        # hand-verified claim → score cases (the Tier 1 oracle seed)
+  faithfulness.eval.jsonl  # grounded_facts cases for the Tier 3 faithfulness harness (ADR-0012)
+  reports/                 # Tier 3 report + committed baseline (git-tracked, ADR-0012)
 infra/local/         # docker-compose rig (LocalStack + Postgres) and provisioning script
 src/claims_pipeline/
   events.py          # the claim event contract (SPEC.md §1)
@@ -161,9 +164,24 @@ src/claims_pipeline/
   replay/            # dead-letter inspection and replay CLI (SPEC.md §5, ADR-0007)
   api/               # FastAPI ranking API: routers, dependencies, schemas (SPEC.md §4, ADR-0011)
   explanation/       # the confined explanation layer -- the only model call (SPEC.md §4, ADR-0003)
+  evals/             # Tier 3 faithfulness eval harness: judge, runner, CLI (EVAL_PLAN.md, ADR-0012)
 tests/               # unit tests, golden-seed scoring tests, and skippable
                      # LocalStack/Postgres integration tests
 ```
+
+## Running the Tier 3 faithfulness eval harness
+
+```sh
+python -m claims_pipeline.evals                    # run + print the report, no gating
+python -m claims_pipeline.evals --write-baseline    # record this run's score as the new baseline
+python -m claims_pipeline.evals --check-baseline    # exit non-zero only on regression below baseline
+```
+
+Requires `ANTHROPIC_API_KEY` (both the explanation model and the judge are live model
+calls); skips cleanly and exits 0 with no key, the same pattern the live guardrail
+tests use. The harness logic itself (aggregation, clustering, baseline comparison) is
+covered by `tests/evals/test_runner_stubbed.py` with no key required. See ADR-0012
+for the judge model, baseline, and threshold this session recorded.
 
 ## Status
 
@@ -178,5 +196,8 @@ claims_pipeline.replay` dead-letter inspection/replay CLI, all exercised end-to-
 against real LocalStack + Postgres. The ranking API and confined explanation
 endpoint are built and covered by Tier 1 golden-seed ordering tests and Tier 2
 guardrail tests (groundedness, injection resistance, non-empty success, ranking
-purity — ADR-0011); Tier 3 faithfulness evals, EKS/KEDA autoscaling, and the
-generator's burst knob are built in subsequent milestones.
+purity — ADR-0011). Tier 3 faithfulness evals are built: a judged eval set
+(`benchmark/faithfulness.eval.jsonl`), an LLM-as-judge harness with a committed
+baseline (`docs/adr/0012-*`), and a meta-eval proving the judge catches known-bad
+explanations. EKS/KEDA autoscaling and the generator's burst knob are built in
+subsequent milestones.

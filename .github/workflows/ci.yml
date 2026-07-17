@@ -20,6 +20,22 @@ jobs:
         # Tier 1 + Tier 2 tests (docs/EVAL_PLAN.md) land here starting Session 2
         # and block merge unconditionally once present.
 
-  # Tier 3 faithfulness-eval job is added in Session 5, once the explanation
-  # layer and golden faithfulness set exist. It reports the score and blocks
-  # only on regression below the committed baseline (docs/EVAL_PLAN.md).
+  faithfulness-eval:
+    # Tier 3 (docs/EVAL_PLAN.md): reports the faithfulness score and blocks
+    # only on regression below the committed baseline
+    # (benchmark/reports/faithfulness_baseline.json) -- never an
+    # unconditional pass/fail like the lint-and-test job above. The runner
+    # itself (src/claims_pipeline/evals/runner.py) skips cleanly and exits 0
+    # when ANTHROPIC_API_KEY is unset, so this job is a no-op, non-blocking
+    # step until an ANTHROPIC_API_KEY secret is actually wired into the repo
+    # -- a live eval run is not a per-push blocker before that.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -e ".[dev]"
+      - run: python -m claims_pipeline.evals --check-baseline
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -1,0 +1,7 @@
+{
+  "faithfulness_score": 1.0,
+  "threshold": 0.05,
+  "recorded_at": "2026-07-17T06:49:12.374957+00:00",
+  "eval_set_size": 14,
+  "judge_model": "claude-opus-4-8"
+}
