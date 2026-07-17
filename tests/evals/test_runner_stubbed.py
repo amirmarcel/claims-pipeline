@@ -8,6 +8,7 @@ live judge itself is proven separately in test_meta_eval_live.py.
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from claims_pipeline.evals.runner import check_regression, run_eval_set
 from tests.evals.stub_client import SequencedStubAnthropicClient
@@ -107,6 +108,40 @@ def test_run_eval_set_report_serializes_to_dict_and_markdown() -> None:
     markdown = report.to_markdown()
     assert "faithful-case" in markdown
     assert "PASS" in markdown and "FAIL" in markdown
+
+
+class _ExplosiveExplanationClient:
+    """Stub that fails loudly if `.messages.create` is ever called -- used to
+    prove a case with a pinned `explanation` skips live generation entirely
+    (docs/adr/0012-*: near-miss judge-calibration cases control wording a
+    live model can't reliably reproduce, so they must never hit this call).
+    """
+
+    class _Messages:
+        def create(self, **kwargs: Any) -> Any:
+            raise AssertionError(
+                "generate_explanation must not be called for a case with a pinned explanation"
+            )
+
+    messages = _Messages()
+
+
+def test_run_eval_set_uses_pinned_explanation_without_generating() -> None:
+    case = {
+        "case": "near-miss-fixture",
+        "grounded_facts": _CASES[0]["grounded_facts"],
+        "explanation": "A hand-written, pre-approved explanation string.",
+    }
+    verdict_json = json.dumps({"faithful": True, "score": 0.9, "violations": [], "reasoning": "ok"})
+    judge_stub = SequencedStubAnthropicClient([(verdict_json, "end_turn")])
+
+    report = run_eval_set(
+        [case], explanation_client=_ExplosiveExplanationClient(), judge_client=judge_stub
+    )
+
+    assert report.cases[0].explanation == "A hand-written, pre-approved explanation string."
+    assert report.cases[0].explanation_source == "fixed"
+    assert "fixed" in report.to_markdown()
 
 
 def test_check_regression_passes_within_threshold() -> None:

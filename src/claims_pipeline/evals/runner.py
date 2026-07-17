@@ -58,6 +58,7 @@ class CaseResult:
     case: str
     grounded_facts: dict[str, Any]
     explanation: str
+    explanation_source: str
     verdict: FaithfulnessVerdict
     clusters: list[str]
 
@@ -85,6 +86,7 @@ class EvalReport:
                     "case": c.case,
                     "grounded_facts": c.grounded_facts,
                     "explanation": c.explanation,
+                    "explanation_source": c.explanation_source,
                     "verdict": asdict(c.verdict),
                     "clusters": c.clusters,
                 }
@@ -110,7 +112,8 @@ class EvalReport:
         lines.append("## Per-case results")
         for c in self.cases:
             status = "PASS" if c.verdict.faithful else "FAIL"
-            lines.append(f"### [{status}] {c.case} (score={c.verdict.score:.2f})")
+            source = f", {c.explanation_source}" if c.explanation_source == "fixed" else ""
+            lines.append(f"### [{status}] {c.case} (score={c.verdict.score:.2f}{source})")
             lines.append(f"- explanation: {c.explanation!r}")
             if c.verdict.violations:
                 lines.append(f"- violations: {c.verdict.violations}")
@@ -134,14 +137,27 @@ def run_eval_set(
     explanation_client: AnthropicClientLike | None,
     judge_client: JudgeAnthropicClientLike | None,
 ) -> EvalReport:
-    """Generate one explanation and one judgment per case, then aggregate.
+    """Judge one explanation per case, then aggregate. For most cases the
+    explanation is generated live via the confined explanation model
+    (`explanation_client`); a case may instead pin an `explanation` string
+    directly in the eval set, which skips generation entirely. Pinning is
+    for judge-calibration cases where the point is to control specific
+    wording (defensible rounding, terse phrasing, an implicit-but-derivable
+    comparison) that live generation can't reliably reproduce -- see the
+    near-miss cases in benchmark/faithfulness.eval.jsonl and docs/adr/0012-*.
     Both clients are injectable so this function runs, deterministically,
     against stubs in tests (no network, no key) as well as live clients.
     """
     results: list[CaseResult] = []
     for case in cases:
         facts = case["grounded_facts"]
-        explanation = generate_explanation(facts, client=explanation_client)
+        pinned_explanation = case.get("explanation")
+        if pinned_explanation is not None:
+            explanation = pinned_explanation
+            explanation_source = "fixed"
+        else:
+            explanation = generate_explanation(facts, client=explanation_client)
+            explanation_source = "generated"
         verdict = judge_faithfulness(facts, explanation, client=judge_client)
         clusters = [_cluster(v) for v in verdict.violations] if not verdict.faithful else []
         results.append(
@@ -149,6 +165,7 @@ def run_eval_set(
                 case=case["case"],
                 grounded_facts=facts,
                 explanation=explanation,
+                explanation_source=explanation_source,
                 verdict=verdict,
                 clusters=clusters,
             )

@@ -39,10 +39,12 @@ established for Tier 2:
   (`tests/evals/test_runner_stubbed.py`). `python -m claims_pipeline.evals` is the
   only place that decides whether `ANTHROPIC_API_KEY` is available and wires the real
   clients; it skips cleanly (prints a message, exits 0) when the key is absent.
-- `benchmark/faithfulness.eval.jsonl` — ten `grounded_facts` cases covering the shape
-  space Tier 2 doesn't already stress: top/bottom/sole-provider rank (null
-  neighbors), a zero-quality provider, a perfect-cost/poor-quality provider, large
-  claim counts, four-decimal-precision scores, and a tied neighbor score. Tier 2's
+- `benchmark/faithfulness.eval.jsonl` — fourteen cases: ten `grounded_facts`-only
+  cases (explanation generated live) covering the shape space Tier 2 doesn't already
+  stress — top/bottom/sole-provider rank (null neighbors), a zero-quality provider, a
+  perfect-cost/poor-quality provider, large claim counts, four-decimal-precision
+  scores, and a tied neighbor score — plus four near-miss judge-calibration cases
+  with a hand-written, pinned `explanation` (see the amendment below). Tier 2's
   existing injection-resistance cases are not duplicated here — Tier 3 measures
   faithfulness quality on benign input, Tier 2 already covers adversarial input.
 - `tests/fixtures/faithfulness_meta_eval.json` +
@@ -114,6 +116,53 @@ report, a rich verdict with nested single/double quotes inside `violations` and
 `reasoning`, and a markdown-fenced response. Re-verified against the live judge:
 `test_meta_eval_live.py` + `test_runner_live.py` run three times in a row, all
 passing — the intermittent crash did not recur.
+
+### Amendment (Session 5, same day): near-miss calibration cases
+
+A `1.0` baseline with a `0.05` threshold is only meaningful if the judge has been
+pressure-tested on inputs that are genuinely faithful but subtle enough that a
+reasonable judge *could* score them below a perfect 1.0 — otherwise the ten original
+cases may simply have been unambiguous, and the first realistic production
+explanation that hedges, rounds, or phrases tersely would fail CI as a false
+"regression" the moment it appears.
+
+**Four near-miss cases added** to `benchmark/faithfulness.eval.jsonl`
+(`near-miss-defensible-rounding`, `near-miss-implicit-derived-gap`,
+`near-miss-terse-phrasing`, `near-miss-edge-of-support-characterization`), each
+genuinely faithful but exercising a different way a faithful explanation can look
+risky: two-decimal rounding of a four-decimal score ("about 0.67" for 0.6667), a
+score gap stated as a number that's only implicit in `grounded_facts` (requires
+subtraction, not a literal lookup), deliberately terse/choppy phrasing that violates
+the explanation model's own "2-4 sentences of plain prose" style guidance without
+introducing any ungrounded content, and a qualitative characterization ("essentially
+tied") of a very small (0.0003-0.0004) score gap.
+
+These required a runner change: `run_eval_set` (`src/claims_pipeline/evals/runner.py`)
+now accepts an optional `explanation` field per eval-set case. When present, that
+exact string is judged directly and `generate_explanation` is never called
+(`explanation_source: "fixed"` in the report, vs. `"generated"` for the other ten
+cases). This is necessary because live generation can't be reliably steered into a
+specific rounding or phrasing choice — the near-miss cases need to control the
+explanation, not just the `grounded_facts`, to test the judge's sensitivity rather
+than the explanation model's.
+
+**Result: all four near-miss cases scored a perfect 1.0**, judged correctly as
+faithful, across four separate live runs against the full 14-case set (`Aggregate
+faithfulness score: 1.0000`, `Faithful: 14 / 14` on every run) plus two further live
+runs of the meta-eval and runner smoke test. The judge did not penalize reasonable
+rounding, correct-but-derived arithmetic, terse non-prose phrasing, or qualitative
+framing of a near-zero score gap. **The `1.0` baseline is now empirically justified,
+not merely provisional** — this is the strongest evidence available that the ten
+original cases weren't simply too easy, short of finding real production cases the
+judge scores below 1.0. The baseline value and `0.05` threshold are unchanged;
+`benchmark/reports/faithfulness_baseline.json` was refreshed only to reflect the new
+`eval_set_size: 14` (score and threshold identical). **Caveat, for the record:**
+four hand-written cases from one session's brainstorm are not exhaustive — this
+establishes the judge tolerates *these specific* faithful-but-subtle patterns, not
+that no faithful-but-subtle pattern exists that would score lower. The right response
+to a future case that legitimately scores in the 0.85-0.95 range is not to panic the
+gate, but to add it to the near-miss set and revisit the threshold with real data, per
+the improvement loop below.
 
 **CI wiring**: a new `faithfulness-eval` job in `.github/workflows/ci.yml`, separate
 from `lint-and-test`, runs `python -m claims_pipeline.evals --check-baseline` with
