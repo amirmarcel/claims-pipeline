@@ -72,11 +72,15 @@ docker compose -f infra/local/docker-compose.yml down -v
 | service    | port |
 |------------|------|
 | LocalStack | 4566 |
-| Postgres   | 5432 |
+| Postgres   | 5433 |
+
+Postgres binds host port 5433 (container port stays 5432 internally) so the rig
+doesn't collide with a developer's existing native Postgres listening on the
+standard 5432. Connect with `psql -h localhost -p 5433 -U claims claims_pipeline`.
 
 ## Credentials
 
 LocalStack accepts any AWS credentials. Postgres: user `claims`, password `claims`,
 database `claims_pipeline`. Override the connection string with
 `CLAIMS_PIPELINE_DATABASE_URL` (defaults to
-`postgresql://claims:claims@localhost:5432/claims_pipeline`).
+`postgresql://claims:claims@localhost:5433/claims_pipeline`).

@@ -68,7 +68,7 @@ def _localstack_reachable() -> bool:
 
 def _postgres_reachable() -> bool:
     parsed = urlparse(DSN)
-    return _reachable(parsed.hostname or "localhost", parsed.port or 5432)
+    return _reachable(parsed.hostname or "localhost", parsed.port or 5433)
 
 
 def _queue_url(sqs: Any, name: str) -> str | None:
