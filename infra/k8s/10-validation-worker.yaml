@@ -1,7 +1,9 @@
-# Validation worker (SPEC.md §2 step 3). No autoscaling wired up yet -- KEDA
-# ScaledObjects are Session 7; replicas is a fixed count here on purpose, but
-# nothing about this Deployment (probes, resources, ServiceAccount) needs to
-# change when a ScaledObject is added later, it just starts managing replicas.
+# Validation worker (SPEC.md §2 step 3). `replicas: 1` below is only the
+# starting point applied before KEDA's ScaledObject (20-keda-scaledobjects.yaml,
+# ADR-0004, ADR-0014) exists; once that ScaledObject's HPA is reconciled it
+# takes over replica count, and this field is no longer authoritative. Nothing
+# about this Deployment (probes, resources, ServiceAccount) needed to change
+# to make it autoscaling-ready.
 apiVersion: apps/v1
 kind: Deployment
 metadata:

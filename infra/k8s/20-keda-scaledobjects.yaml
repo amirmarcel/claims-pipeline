@@ -2,7 +2,7 @@
 # never CPU. The KEDA operator itself is a Helm install
 # (`helm install keda kedacore/keda --namespace keda`, infra/k8s/README.md
 # §KEDA), not part of this manifest set -- it's a cluster add-on, same as
-# the EKS side documents in infra/eks/README.md's "Deferred" section.
+# the EKS side documents in infra/eks/README.md's "KEDA (Session 7)" section.
 #
 # Credentials: LocalStack accepts any access key/secret ("test"/"test",
 # the same convention infra/local/provision.sh uses); this Secret exists

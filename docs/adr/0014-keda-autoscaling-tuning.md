@@ -92,7 +92,7 @@ final:
    single synthetic one — the value was picked to fit inside one load-test
    sitting, not against a production noise profile.
 
-The EKS side (`infra/eks/README.md`, "Deferred (Session 7)") documents KEDA
+The EKS side (`infra/eks/README.md`, "KEDA (Session 7)") documents KEDA
 as a cluster add-on applied separately from the Terraform-managed SNS/SQS/
 IAM/RDS resources, not part of that module — this ADR's values are the
 starting point for that install's `ScaledObject`s too, subject to the same
