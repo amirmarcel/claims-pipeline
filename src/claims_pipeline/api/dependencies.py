@@ -1,4 +1,6 @@
-"""Shared FastAPI dependencies: a per-request Postgres connection."""
+"""Shared FastAPI dependencies: a per-request Postgres connection and the
+Anthropic client used by the explanation endpoint.
+"""
 
 from __future__ import annotations
 

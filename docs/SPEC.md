@@ -162,6 +162,12 @@ for **faithfulness**: every quantitative claim in the explanation must match a v
 in `grounded_facts`, and it must not introduce facts that are not present. See
 `docs/EVAL_PLAN.md`.
 
+`grounded_facts` is serialized into the prompt between literal `<grounded_facts>` /
+`</grounded_facts>` tags. Because claim/provider-derived values (e.g. `provider_id`)
+are untrusted input, any angle brackets they contain are escaped as JSON unicode
+escapes before serialization, so an attacker-controlled value cannot forge a closing
+tag and smuggle text outside the data block (ADR-0011).
+
 ## 5. Failure and delivery semantics
 
 - **At-least-once delivery.** Both queues may redeliver. Consumers are therefore

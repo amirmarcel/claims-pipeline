@@ -65,3 +65,11 @@ stubbed layer can drift from real model behavior over time (a prompt change coul
 regress live behavior while the stale fixture still "passes"); the live layer is the
 check against that drift, and its explicit skip-when-keyless design keeps that risk
 from ever leaking into the merge-blocking gate.
+
+Stubbed-layer review also caught a second, narrower injection vector: `json.dumps`
+does not escape `<`/`>`, so an untrusted `provider_id` containing the literal closing
+tag could forge the end of the `<grounded_facts>` block and smuggle attacker text
+outside it. `_build_user_message` (`src/claims_pipeline/explanation/client.py`) now
+escapes angle brackets as JSON unicode escapes after serialization, and
+`test_delimiter_breaking_payload_cannot_forge_a_closing_tag` in
+`tests/explanation/test_guardrails_stubbed.py` pins that behavior (SPEC.md §4).

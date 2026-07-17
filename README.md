@@ -160,7 +160,7 @@ src/claims_pipeline/
   workers/           # validation and scoring workers; ack discipline (SPEC.md §2, §5, ADR-0010)
   replay/            # dead-letter inspection and replay CLI (SPEC.md §5, ADR-0007)
   api/               # FastAPI ranking API: routers, dependencies, schemas (SPEC.md §4, ADR-0011)
-  explanation/        # the confined explanation layer -- the only model call (SPEC.md §4, ADR-0003)
+  explanation/       # the confined explanation layer -- the only model call (SPEC.md §4, ADR-0003)
 tests/               # unit tests, golden-seed scoring tests, and skippable
                      # LocalStack/Postgres integration tests
 ```
