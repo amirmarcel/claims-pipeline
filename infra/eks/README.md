@@ -94,9 +94,35 @@ protection is turned off first (`terraform apply -var` or a manual console
 step), which is intentional friction against an accidental destroy of
 claim data.
 
-## Deferred (Session 7)
+## KEDA (Session 7)
 
-KEDA install + `ScaledObject` per worker Deployment, and everything the
-load-test/benchmark run needs. Not part of this Terraform module at all --
-KEDA is a cluster add-on (Helm chart or its own Terraform), not a change to
-the SNS/SQS/IAM/RDS resources here.
+KEDA and its `ScaledObject`s are a cluster add-on, deliberately **not** part
+of this Terraform module -- installing a Helm chart into an existing cluster
+isn't a resource this module provisions, the same reasoning that keeps the
+EKS control plane itself out of scope (see the table above). Session 7 built
+and ran this on kind (`infra/k8s/20-keda-scaledobjects.yaml`, ADR-0014):
+
+```sh
+helm repo add kedacore https://kedacore.github.io/charts
+helm install keda kedacore/keda --namespace keda --create-namespace
+kubectl apply -f infra/k8s/20-keda-scaledobjects.yaml
+```
+
+The same commands apply unmodified on EKS. Two things change, both
+configuration, not the `ScaledObject` shape itself:
+
+- **`queueURL`/`awsEndpoint`**: the `sqs.us-east-1.localhost.localstack.cloud`
+  hostname (kind's CoreDNS-rewritten LocalStack address) becomes the real
+  regional SQS endpoint (`https://sqs.<region>.amazonaws.com/<account>/<queue>`);
+  `awsEndpoint` is dropped entirely once the SDK talks to the real regional
+  default, same as every other endpoint override in this system (ADR-0008).
+- **Authentication**: the `TriggerAuthentication`'s LocalStack
+  `test`/`test` static credentials become KEDA pod identity against the
+  same per-workload IRSA role each worker's own `ServiceAccount` already
+  assumes (`iam.tf`) -- `identityOwner: pod` rather than a
+  `secretTargetRef`, so the scaler is scoped by the same least-privilege
+  role as the worker it scales, not a separate credential.
+
+`queueLength`, replica bounds, and scale-down pacing are ADR-0014's flagged,
+not-yet-production-validated starting values -- see that ADR before treating
+them as tuned for a real traffic shape.
