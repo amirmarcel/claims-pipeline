@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import time
 from collections.abc import Iterable
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 import boto3
@@ -18,6 +19,15 @@ from claims_pipeline.generator.claims import GeneratedEvent, MalformedEvent
 from claims_pipeline.generator.config import BurstConfig
 
 DEFAULT_TOPIC_NAME = "claims-raw"
+
+# A synchronous, one-call-at-a-time publish loop caps achievable throughput at
+# roughly 1/(network round trip), which in local testing landed near 85-90
+# events/s regardless of the configured `rate` -- far below what `burst` needs
+# to actually outrun worker consumption and build a queue backlog. Publishing
+# from a small pool overlaps the round trips so the sleep-paced schedule below
+# is the actual bottleneck, not HTTP latency. boto3's low-level clients (as
+# opposed to resources) are documented as thread-safe for concurrent calls.
+DEFAULT_PUBLISH_CONCURRENCY = 20
 
 
 def _wire_body(event: GeneratedEvent) -> str:
@@ -51,18 +61,27 @@ def publish_claims(
     topic_name: str = DEFAULT_TOPIC_NAME,
     endpoint_url: str,
     region_name: str = "us-east-1",
+    concurrency: int = DEFAULT_PUBLISH_CONCURRENCY,
 ) -> int:
     """Publish claims (or failure-injected events) to the SNS topic at `rate`
     events/sec, stepping to `burst.rate` at `burst.offset` seconds in if a
-    burst is configured. Returns the count sent."""
+    burst is configured. Returns the count sent.
+
+    Publish calls are submitted to a small thread pool so the configured
+    `rate`/`burst` schedule -- not per-call network latency -- paces the run.
+    """
     sns: Any = boto3.client("sns", endpoint_url=endpoint_url, region_name=region_name)
     # create_topic is idempotent: returns the existing topic's ARN if the
     # topic (provisioned by infra/local/provision.sh) already exists.
     topic_arn = sns.create_topic(Name=topic_name)["TopicArn"]
 
     sent = 0
-    for index, claim in enumerate(claims):
-        sns.publish(TopicArn=topic_arn, Message=_wire_body(claim))
-        sent += 1
-        time.sleep(_interval_for_index(index, rate=rate, burst=burst))
+    with ThreadPoolExecutor(max_workers=concurrency) as pool:
+        futures = []
+        for index, claim in enumerate(claims):
+            futures.append(pool.submit(sns.publish, TopicArn=topic_arn, Message=_wire_body(claim)))
+            sent += 1
+            time.sleep(_interval_for_index(index, rate=rate, burst=burst))
+        for future in futures:
+            future.result()
     return sent

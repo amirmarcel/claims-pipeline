@@ -24,6 +24,16 @@ dev = [
     "python-dotenv>=1.0",
     "httpx>=0.27",
 ]
+# Load-test graph rendering (benchmark/plot_scaling.py) and the standalone
+# single-claim trace demo (benchmark/trace_one_claim.py) only -- not imported
+# by any src/claims_pipeline module, so it stays out of the main dependency
+# list per the same reasoning as `dev`.
+benchmark = [
+    "matplotlib==3.11.0",
+    "opentelemetry-api==1.44.0",
+    "opentelemetry-sdk==1.44.0",
+    "opentelemetry-exporter-otlp-proto-http==1.44.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
