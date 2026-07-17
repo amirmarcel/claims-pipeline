@@ -1,12 +1,10 @@
 """Load generator configuration (SPEC.md §6).
 
 Session 1 implemented rate, duration/count, provider_distribution (uniform),
-outcome_mix, seed. Session 3 adds `failure_injection` (see below). One knob
-from the full §6 contract remains deliberately not wired up:
-
-- `burst` — a step change in rate at a configured offset. Session 7
-  (autoscaling benchmark). Plugs in at the publish-pacing loop in
-  `generator/cli.py`, which currently paces at a single constant `rate`.
+outcome_mix, seed. Session 3 added `failure_injection`. Session 7 adds
+`burst` -- a step change in rate at a configured offset, the last knob from
+the full §6 contract. It plugs into the publish-pacing loop in
+`generator/publisher.py`, which paces at a single constant `rate` before this.
 """
 
 from __future__ import annotations
@@ -24,6 +22,25 @@ FAILURE_INJECTION_MODES: tuple[str, ...] = ("invalid-but-parseable", "malformed"
 
 
 @dataclass(frozen=True, slots=True)
+class BurstConfig:
+    """A step change in publish rate at `offset` seconds into the run.
+
+    Before `offset`, events publish at the base `GeneratorConfig.rate`; from
+    `offset` onward, at `rate`. Only meaningful with `duration` (there's no
+    time axis to place a step change on in fixed-`count` mode).
+    """
+
+    offset: float
+    rate: float
+
+    def __post_init__(self) -> None:
+        if self.offset < 0:
+            raise ValueError("burst offset must be >= 0")
+        if self.rate <= 0:
+            raise ValueError("burst rate must be > 0")
+
+
+@dataclass(frozen=True, slots=True)
 class GeneratorConfig:
     rate: float
     seed: int
@@ -33,6 +50,7 @@ class GeneratorConfig:
     provider_pool_size: int = 20
     outcome_mix: dict[str, float] = field(default_factory=lambda: dict(DEFAULT_OUTCOME_MIX))
     failure_injection: dict[str, float] | None = None
+    burst: BurstConfig | None = None
 
     def __post_init__(self) -> None:
         if self.rate <= 0:
@@ -60,10 +78,20 @@ class GeneratorConfig:
             total = sum(self.failure_injection.values())
             if total > 1.0:
                 raise ValueError(f"failure_injection fractions must sum to <= 1.0, got {total}")
+        if self.burst is not None:
+            if self.duration is None:
+                raise ValueError("burst requires duration to be set, not count")
+            if self.burst.offset >= self.duration:
+                raise ValueError("burst offset must be < duration")
 
     @property
     def event_count(self) -> int:
         if self.count is not None:
             return self.count
         assert self.duration is not None
-        return max(1, round(self.rate * self.duration))
+        if self.burst is None:
+            return max(1, round(self.rate * self.duration))
+        sustained_seconds = self.burst.offset
+        burst_seconds = self.duration - self.burst.offset
+        total = self.rate * sustained_seconds + self.burst.rate * burst_seconds
+        return max(1, round(total))
