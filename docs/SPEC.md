@@ -135,17 +135,23 @@ The single-provider detail: score, sub-signals, claim count, rank.
 ### `GET /providers/{provider_id}/explanation`
 
 The only endpoint that calls the language model. The model receives a fixed set of
-**grounded facts** (the provider's score, sub-signals, claim count, rank, and the
-same figures for the neighbors it is being compared against) and must explain the
-rank using only those facts.
+**grounded facts** (the provider's own id, score, sub-signals, claim count, rank, and
+the same figures for the neighbor(s) immediately above and below it in the ranking)
+and must explain the rank using only those facts. `neighbor_above`/`neighbor_below`
+are `null` at the top/bottom of the ranking, respectively -- implementation detail
+surfaced here because the model needs its own subject's `provider_id` to write
+coherent prose ("P-001 ranks 2nd..."), and both neighbors (not only the one above)
+to describe where a provider sits relative to its immediate peers.
 
 ```json
 {
   "provider_id": "P-001",
   "rank": 2,
   "grounded_facts": {
-    "provider_score": 0.70, "cost_efficiency": 0.65, "quality": 0.75,
-    "claim_count": 2, "rank": 2, "neighbor_above": { "provider_id": "P-002", "provider_score": 1.0 }
+    "provider_id": "P-001", "provider_score": 0.70, "cost_efficiency": 0.65, "quality": 0.75,
+    "claim_count": 2, "rank": 2,
+    "neighbor_above": { "provider_id": "P-002", "provider_score": 1.0 },
+    "neighbor_below": null
   },
   "explanation": "P-001 ranks 2nd with a score of 0.70. Its quality signal (0.75) ..."
 }
@@ -155,6 +161,12 @@ The explanation is generated, so it is not asserted for exact text. It is measur
 for **faithfulness**: every quantitative claim in the explanation must match a value
 in `grounded_facts`, and it must not introduce facts that are not present. See
 `docs/EVAL_PLAN.md`.
+
+`grounded_facts` is serialized into the prompt between literal `<grounded_facts>` /
+`</grounded_facts>` tags. Because claim/provider-derived values (e.g. `provider_id`)
+are untrusted input, any angle brackets they contain are escaped as JSON unicode
+escapes before serialization, so an attacker-controlled value cannot forge a closing
+tag and smuggle text outside the data block (ADR-0011).
 
 ## 5. Failure and delivery semantics
 

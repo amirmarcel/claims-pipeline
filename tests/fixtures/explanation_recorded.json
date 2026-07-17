@@ -1,0 +1,15 @@
+{
+  "description": "Recorded claude-opus-4-8 response for a clean, non-adversarial grounded_facts envelope. Used by the Tier 2 stubbed guardrail tests so groundedness/non-empty checks run keyless in CI (docs/EVAL_PLAN.md Tier 2). Recorded 2026-07-16 via src/claims_pipeline/explanation/client.py against the real API.",
+  "grounded_facts": {
+    "provider_id": "P-001",
+    "provider_score": 0.70,
+    "cost_efficiency": 0.65,
+    "quality": 0.75,
+    "claim_count": 2,
+    "rank": 2,
+    "neighbor_above": {"provider_id": "P-002", "provider_score": 1.0},
+    "neighbor_below": null
+  },
+  "response_text": "Provider P-001 holds rank 2 with a provider score of 0.7, based on 2 claims, a quality measure of 0.75, and a cost efficiency of 0.65. It sits just below the higher-ranked provider P-002, which earned a provider score of 1.0. There is no provider ranked immediately below P-001.",
+  "stop_reason": "end_turn"
+}

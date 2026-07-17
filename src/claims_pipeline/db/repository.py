@@ -17,7 +17,7 @@ from typing import Any
 import psycopg
 
 from claims_pipeline.events import ClaimEvent
-from claims_pipeline.scoring import cost_efficiency, provider_score, quality
+from claims_pipeline.scoring import ProviderScore, cost_efficiency, provider_score, quality
 
 SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
@@ -95,3 +95,29 @@ def _recompute_provider_aggregate(conn: psycopg.Connection[Any], provider_id: st
             claim_count,
         ),
     )
+
+
+def fetch_ranking(conn: psycopg.Connection[Any]) -> list[ProviderScore]:
+    """Read the full ranking from `provider_scores` (SPEC.md §3, §4).
+
+    Ordering is done in SQL with the same tie-break as the pure scorer
+    (score desc, provider_id asc) so the API's ordering is a direct read,
+    not a recomputation -- the model never sees this query (ADR-0003).
+    """
+    cursor = conn.execute(
+        """
+        SELECT provider_id, provider_score, cost_efficiency, quality, claim_count
+        FROM provider_scores
+        ORDER BY provider_score DESC, provider_id ASC
+        """
+    )
+    return [
+        ProviderScore(
+            provider_id=row[0],
+            provider_score=row[1],
+            cost_efficiency=row[2],
+            quality=row[3],
+            claim_count=row[4],
+        )
+        for row in cursor.fetchall()
+    ]
