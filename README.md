@@ -105,6 +105,22 @@ The architecturally significant choices are recorded as ADRs in `docs/adr/`:
 - [ADR-0008](docs/adr/0008-local-first-then-eks.md) — Local-first on LocalStack, then EKS
 - [ADR-0009](docs/adr/0009-raw-sql-schema-no-migration-framework.md) — Raw SQL schema, no migration framework (yet)
 - [ADR-0010](docs/adr/0010-sqs-native-redrive-and-visibility-backoff.md) — SQS-native redrive policy; visibility timeout as the only backoff
+- [ADR-0011](docs/adr/0011-fastapi-ranking-api-and-two-layer-guardrail-tests.md) — FastAPI for the ranking API; two-layer Tier 2 guardrail tests
+
+## API surface
+
+Served by FastAPI (`claims_pipeline.api.app:app`, run locally with `uvicorn
+claims_pipeline.api.app:app --reload`):
+
+- `GET /providers/ranking?limit=<n>` — the deterministic ranking, a pure read over
+  `provider_scores`. Never touches the language model (ADR-0003) — enforced by a
+  test that fails if the ranking router ever constructs an Anthropic client.
+- `GET /providers/{provider_id}` — single-provider detail: score, sub-signals, rank.
+- `GET /providers/{provider_id}/explanation` — the only endpoint that calls the
+  model. Assembles a fixed `grounded_facts` envelope (score, sub-signals, rank,
+  neighbors) from the same deterministic read, then asks the model to describe it in
+  prose. The model never sees anything beyond that envelope, and any claim/provider
+  -derived text inside it is treated as untrusted data, not instructions (ADR-0003).
 
 ## Scope
 
@@ -143,6 +159,8 @@ src/claims_pipeline/
   db/                # Postgres persistence: schema.sql, repository.py (ADR-0007, ADR-0009)
   workers/           # validation and scoring workers; ack discipline (SPEC.md §2, §5, ADR-0010)
   replay/            # dead-letter inspection and replay CLI (SPEC.md §5, ADR-0007)
+  api/               # FastAPI ranking API: routers, dependencies, schemas (SPEC.md §4, ADR-0011)
+  explanation/        # the confined explanation layer -- the only model call (SPEC.md §4, ADR-0003)
 tests/               # unit tests, golden-seed scoring tests, and skippable
                      # LocalStack/Postgres integration tests
 ```
@@ -157,5 +175,8 @@ reliability layer is in place: SQS-native redrive policies (`maxReceiveCount=3`,
 ADR-0010), correct worker ack discipline, the generator's `failure_injection` knob
 (invalid-but-parseable / malformed / duplicate), and the `python -m
 claims_pipeline.replay` dead-letter inspection/replay CLI, all exercised end-to-end
-against real LocalStack + Postgres. The ranking API, EKS/KEDA autoscaling, and the
+against real LocalStack + Postgres. The ranking API and confined explanation
+endpoint are built and covered by Tier 1 golden-seed ordering tests and Tier 2
+guardrail tests (groundedness, injection resistance, non-empty success, ranking
+purity — ADR-0011); Tier 3 faithfulness evals, EKS/KEDA autoscaling, and the
 generator's burst knob are built in subsequent milestones.
