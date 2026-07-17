@@ -1,0 +1,50 @@
+{
+  "description": "Deliberately-unfaithful (grounded_facts, explanation) pairs for the Tier 3 judge meta-eval (docs/EVAL_PLAN.md, docs/adr/0012-*). A faithfulness judge is only trustworthy if it correctly flags these as UNFAITHFUL -- a judge that scores everything faithful is worthless. Each case pairs a real grounded_facts envelope with a hand-written bad explanation exercising one violation of ADR-0003's faithfulness definition: a number absent from grounded_facts, an invented unsupported reason, or a claim that contradicts the stated rank/ordering.",
+  "cases": [
+    {
+      "case": "invented-number-absent-from-facts",
+      "violation": "ungrounded_number",
+      "grounded_facts": {
+        "provider_id": "P-001",
+        "provider_score": 0.70,
+        "cost_efficiency": 0.65,
+        "quality": 0.75,
+        "claim_count": 2,
+        "rank": 2,
+        "neighbor_above": {"provider_id": "P-002", "provider_score": 1.0},
+        "neighbor_below": null
+      },
+      "explanation": "P-001 ranks 2nd with a provider score of 0.70, built from 2 claims with a quality signal of 0.75 and a cost efficiency of 0.65. This provider also maintains a 92% patient satisfaction rating, which helped it stay close to P-002's score of 1.0."
+    },
+    {
+      "case": "invented-unsupported-reason",
+      "violation": "unsupported_reason",
+      "grounded_facts": {
+        "provider_id": "P-050",
+        "provider_score": 0.30,
+        "cost_efficiency": 0.60,
+        "quality": 0.0,
+        "claim_count": 6,
+        "rank": 9,
+        "neighbor_above": {"provider_id": "P-049", "provider_score": 0.32},
+        "neighbor_below": {"provider_id": "P-051", "provider_score": 0.28}
+      },
+      "explanation": "P-050 ranks 9th with a score of 0.30, based on 6 claims. Its low quality score of 0.0 is primarily because this provider recently switched to a new electronic health records system, which caused temporary documentation gaps during the transition period."
+    },
+    {
+      "case": "contradicts-stated-rank-and-ordering",
+      "violation": "rank_contradiction",
+      "grounded_facts": {
+        "provider_id": "P-021",
+        "provider_score": 0.60,
+        "cost_efficiency": 1.0,
+        "quality": 0.20,
+        "claim_count": 3,
+        "rank": 12,
+        "neighbor_above": {"provider_id": "P-020", "provider_score": 0.62},
+        "neighbor_below": {"provider_id": "P-022", "provider_score": 0.58}
+      },
+      "explanation": "P-021 is the top-ranked provider in the system, holding rank 1 with a near-perfect score of 0.60. It comfortably outperforms every other provider, including P-020 and P-022, thanks to its outstanding cost efficiency of 1.0."
+    }
+  ]
+}
