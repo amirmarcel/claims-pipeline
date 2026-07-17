@@ -5,7 +5,7 @@ explanation + one judgment per case, aggregating, clustering, and writing
 reports) is separated from the model calls it drives, exactly like
 `claims_pipeline.explanation.client` / `claims_pipeline.evals.judge`: both
 model clients are injected parameters, so `run_eval_set` itself is testable
-with stub clients and no network access (tests/evals/test_runner.py). The
+with stub clients and no network access (tests/evals/test_runner_stubbed.py). The
 CLI entrypoint (`main`, `python -m claims_pipeline.evals`) is the only place
 that decides whether a live key is available and wires the real clients.
 """
