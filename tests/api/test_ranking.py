@@ -134,6 +134,28 @@ def test_get_unknown_provider_404s(conn: psycopg.Connection[object], client: Tes
     assert response.status_code == 404
 
 
+def test_unknown_provider_explanation_404s_without_constructing_a_model_client(
+    monkeypatch: pytest.MonkeyPatch, conn: psycopg.Connection[object], client: TestClient
+) -> None:
+    """Session-4 carry-over fix: the explanation endpoint must resolve
+    provider existence (cheap, no model) before ever constructing an
+    Anthropic client, so an unknown provider with no API key 404s instead of
+    500ing out of client construction. Same monkeypatch-to-raise pattern as
+    test_ranking_endpoints_never_construct_a_model_client / ADR-0003.
+    """
+
+    def _boom(*args: object, **kwargs: object) -> None:
+        raise AssertionError(
+            "unknown-provider explanation must never construct an Anthropic client"
+        )
+
+    monkeypatch.setattr("anthropic.Anthropic.__init__", _boom)
+
+    response = client.get("/providers/P-999/explanation")
+
+    assert response.status_code == 404
+
+
 def test_ranking_endpoints_never_construct_a_model_client(
     monkeypatch: pytest.MonkeyPatch, conn: psycopg.Connection[object], client: TestClient
 ) -> None:
