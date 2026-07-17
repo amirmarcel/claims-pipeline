@@ -6,10 +6,32 @@ import argparse
 import os
 
 from .claims import generate_claims
-from .config import GeneratorConfig
+from .config import FAILURE_INJECTION_MODES, GeneratorConfig
 from .publisher import DEFAULT_TOPIC_NAME, publish_claims
 
 DEFAULT_ENDPOINT_URL = "http://localhost:4566"
+
+
+def _parse_failure_injection(raw: list[str] | None) -> dict[str, float] | None:
+    """Parse repeated `--failure-injection mode=fraction` args."""
+    if not raw:
+        return None
+    result: dict[str, float] = {}
+    for item in raw:
+        mode, _, fraction_str = item.partition("=")
+        if not fraction_str:
+            raise argparse.ArgumentTypeError(
+                f"--failure-injection must be mode=fraction, got {item!r}"
+            )
+        if mode not in FAILURE_INJECTION_MODES:
+            raise argparse.ArgumentTypeError(
+                f"unknown failure_injection mode {mode!r}; choose from {FAILURE_INJECTION_MODES}"
+            )
+        try:
+            result[mode] = float(fraction_str)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(f"invalid fraction in {item!r}") from exc
+    return result
 
 
 def build_arg_parser() -> argparse.ArgumentParser:
@@ -29,6 +51,17 @@ def build_arg_parser() -> argparse.ArgumentParser:
         help="how claims spread across providers (only 'uniform' in v1)",
     )
     parser.add_argument("--provider-pool-size", type=int, default=20)
+    parser.add_argument(
+        "--failure-injection",
+        action="append",
+        dest="failure_injection",
+        metavar="MODE=FRACTION",
+        help=(
+            "inject a fraction of events as a failure mode (SPEC.md §6); "
+            f"repeatable, modes: {', '.join(FAILURE_INJECTION_MODES)}. "
+            "e.g. --failure-injection malformed=0.05"
+        ),
+    )
     parser.add_argument("--topic", default=DEFAULT_TOPIC_NAME, help="SNS topic name")
     parser.add_argument(
         "--endpoint-url",
@@ -48,6 +81,7 @@ def main(argv: list[str] | None = None) -> int:
         duration=args.duration,
         provider_distribution=args.provider_distribution,
         provider_pool_size=args.provider_pool_size,
+        failure_injection=_parse_failure_injection(args.failure_injection),
     )
     claims = generate_claims(config)
     sent = publish_claims(

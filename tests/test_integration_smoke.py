@@ -19,6 +19,7 @@ from urllib.parse import urlparse
 import boto3
 import pytest
 
+from claims_pipeline.events import ClaimEvent
 from claims_pipeline.generator.claims import generate_claims
 from claims_pipeline.generator.config import GeneratorConfig
 from claims_pipeline.generator.publisher import publish_claims
@@ -67,6 +68,7 @@ def queue_url() -> str:
 def test_published_claim_is_receivable_on_validation_queue(queue_url: str) -> None:
     config = GeneratorConfig(rate=1000.0, seed=99, count=1)
     [claim] = generate_claims(config)
+    assert isinstance(claim, ClaimEvent)
 
     sent = publish_claims([claim], rate=1000.0, endpoint_url=ENDPOINT_URL, region_name=REGION)
     assert sent == 1

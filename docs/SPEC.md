@@ -162,10 +162,21 @@ in `grounded_facts`, and it must not introduce facts that are not present. See
   idempotent on `claim_id` (ADR-0007).
 - **Poison messages.** A message that fails processing repeatedly (validation
   worker: unparseable; scoring worker: unexpected error) is redriven to the relevant
-  dead-letter queue after a bounded number of receives, with structured context.
+  dead-letter queue after a bounded number of receives (`maxReceiveCount`, ADR-0010),
+  with structured context. Concretely: the redrive itself is SQS-native (a redrive
+  policy on the source queue, plus a worker that never acks a message it failed to
+  process), so it moves the original body verbatim with no reason field of the
+  worker's own authorship; the "structured context" is what the worker logs at the
+  moment it gives up on the message (message id, receive count, reason) and, at
+  inspection time, what the replay utility derives by attempting to classify the
+  dead-lettered body. This differs from business-invalid routing (§1), where the
+  validation worker itself writes a `{"claim": ..., "reason": ...}` record directly
+  -- the two mechanisms both end at a dead-letter queue but are not the same path.
 - **Replay.** Dead-lettered messages can be inspected and re-driven back onto the
   source queue once the cause is addressed. Replay must be safe precisely because
-  consumers are idempotent.
+  consumers are idempotent. A genuinely unparseable body has no corrected form to
+  replay byte-for-byte; replay guarantees safety (no double-counting), not that a
+  poison message becomes processable without the underlying data or bug being fixed.
 
 These semantics are enforced by tests, not left to runtime hope. See
 `docs/EVAL_PLAN.md` §Reliability tests.
