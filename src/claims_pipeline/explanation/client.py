@@ -48,9 +48,17 @@ preamble like "Here is the explanation:"."""
 
 
 def _build_user_message(grounded_facts: dict[str, Any]) -> str:
+    # json.dumps does not escape '<'/'>', so a string value containing the
+    # literal "</grounded_facts>" could otherwise appear to close the data
+    # block early and smuggle attacker-controlled text as if it were outside
+    # <grounded_facts> (AGENTS.md #2, #5). Escaping them as </> is
+    # valid inside JSON string values and keeps the delimiter unforgeable.
+    escaped = (
+        json.dumps(grounded_facts, sort_keys=True).replace("<", "\\u003c").replace(">", "\\u003e")
+    )
     return (
         "<grounded_facts>\n"
-        f"{json.dumps(grounded_facts, sort_keys=True)}\n"
+        f"{escaped}\n"
         "</grounded_facts>\n\n"
         "Explain this provider's rank using only the facts above."
     )
