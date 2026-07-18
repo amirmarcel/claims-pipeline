@@ -8,6 +8,39 @@ on:
 jobs:
   lint-and-test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: claims
+          POSTGRES_PASSWORD: claims
+          POSTGRES_DB: claims_pipeline
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd="pg_isready -U claims -d claims_pipeline"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+      localstack:
+        image: localstack/localstack:3.8
+        env:
+          SERVICES: sns,sqs
+          DEBUG: 0
+          PERSISTENCE: 0
+        ports:
+          - 4566:4566
+        options: >-
+          --health-cmd="curl -f http://localhost:4566/_localstack/health"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      CLAIMS_PIPELINE_DATABASE_URL: postgresql://claims:claims@localhost:5433/claims_pipeline
+      LOCALSTACK_ENDPOINT_URL: http://localhost:4566
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      AWS_DEFAULT_REGION: us-east-1
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -16,9 +49,15 @@ jobs:
       - run: pip install -e ".[dev]"
       - run: ruff check .
       - run: mypy src
+      - name: Provision SNS/SQS topology on LocalStack
+        run: ./infra/local/provision.sh
+      - name: Apply Postgres schema
+        run: python -c "from claims_pipeline.db import repository as r; r.apply_schema(r.connect())"
       - run: pytest
-        # Tier 1 + Tier 2 tests (docs/EVAL_PLAN.md) land here starting Session 2
-        # and block merge unconditionally once present.
+        # Tier 1 + Tier 2 tests (docs/EVAL_PLAN.md), including the infra-backed
+        # idempotency / ranking / reliability-e2e suites now that Postgres and
+        # LocalStack run as service containers above, block merge
+        # unconditionally.
 
   faithfulness-eval:
     # Tier 3 (docs/EVAL_PLAN.md): reports the faithfulness score and blocks
