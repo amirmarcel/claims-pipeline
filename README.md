@@ -252,8 +252,9 @@ src/claims_pipeline/
   api/               # FastAPI ranking API: routers, dependencies, schemas (SPEC.md §4, ADR-0011)
   explanation/       # the confined explanation layer -- the only model call (SPEC.md §4, ADR-0003)
   evals/             # Tier 3 faithfulness eval harness: judge, runner, CLI (EVAL_PLAN.md, ADR-0012)
-tests/               # unit tests, golden-seed scoring tests, and skippable
-                     # LocalStack/Postgres integration tests
+tests/               # unit tests, golden-seed scoring tests, and LocalStack/Postgres
+                     # integration tests (real service containers in CI; skip
+                     # locally if that infra isn't reachable)
 ```
 
 ## Running the Tier 3 faithfulness eval harness
