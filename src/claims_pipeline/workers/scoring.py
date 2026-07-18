@@ -66,9 +66,7 @@ def handle_message(
             # connection. `conn.closed` will reflect this so `run` can
             # reconnect before the next message; don't let it crash the
             # worker loop.
-            logger.warning(
-                "rollback failed after processing error; connection is likely broken"
-            )
+            logger.warning("rollback failed after processing error; connection is likely broken")
         logger.exception(
             "scoring-q message failed processing; leaving unacked for "
             "redelivery/redrive (message_id=%s, receive_count=%s)",
