@@ -12,8 +12,12 @@ poison/processing failure, not a business-invalid one, and it all goes
 through the same ack discipline: `run` leaves a failed message unacked so
 SQS's own redrive policy (maxReceiveCount=3, scoring-dlq,
 infra/local/provision.sh) redrives it after enough failed receives. There is
-no in-process retry loop -- the SQS visibility timeout is the only backoff,
-including for transient downstream errors (ADR-0010).
+no in-process *retry* loop -- the SQS visibility timeout is the only backoff,
+including for transient downstream errors (ADR-0010). `run` does, however,
+reconnect to Postgres in-process when the connection itself was dropped by
+the failure (e.g. the server restarting mid-query), so that a transient
+outage doesn't strand the worker on a dead connection for every subsequent
+message until its pod is restarted.
 """
 
 from __future__ import annotations
@@ -54,7 +58,15 @@ def handle_message(
     try:
         process_message(conn, message["Body"])
     except Exception:
-        conn.rollback()
+        try:
+            conn.rollback()
+        except Exception:
+            # The connection itself is what broke (e.g. the server dropped
+            # mid-query) -- rollback has nothing to roll back on a dead
+            # connection. `conn.closed` will reflect this so `run` can
+            # reconnect before the next message; don't let it crash the
+            # worker loop.
+            logger.warning("rollback failed after processing error; connection is likely broken")
         logger.exception(
             "scoring-q message failed processing; leaving unacked for "
             "redelivery/redrive (message_id=%s, receive_count=%s)",
@@ -83,7 +95,8 @@ def run(
     sqs: Any = boto3.client("sqs", endpoint_url=endpoint_url, region_name=region_name)
     scoring_url = sqs.get_queue_url(QueueName=SCORING_QUEUE_NAME)["QueueUrl"]
 
-    with repository.connect(dsn) as conn:
+    conn = repository.connect(dsn)
+    try:
         empty_polls = 0
         while idle_polls_before_exit is None or empty_polls < idle_polls_before_exit:
             touch_heartbeat()
@@ -100,6 +113,16 @@ def run(
             empty_polls = 0
             for message in messages:
                 handle_message(sqs, conn, message, scoring_url=scoring_url)
+                if conn.closed:
+                    # The failure broke the connection itself (not just the
+                    # message) -- reconnect so subsequent messages aren't
+                    # stuck failing against a dead connection until the pod
+                    # restarts.
+                    logger.warning("Postgres connection broken; reconnecting")
+                    conn = repository.connect(dsn)
+    finally:
+        if not conn.closed:
+            conn.close()
 
 
 if __name__ == "__main__":

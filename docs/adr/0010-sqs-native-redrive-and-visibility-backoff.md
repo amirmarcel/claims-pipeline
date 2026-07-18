@@ -34,6 +34,16 @@ configuration and in correct ack discipline, not in hand-rolled retry code (this
 mirrors the existing stance, ADR-0007, that correctness lives in the persistence
 layer's upsert semantics rather than in defensive worker logic).
 
+The one thing a worker does recover in-process is its own Postgres *connection* --
+not the failed message. If a transient outage drops the connection itself (not just
+the query), the scoring worker reconnects before polling for the next message
+(`workers/scoring.py`), rather than reusing a connection object left dead by the
+failure. Without this, a since-recovered Postgres would still see every subsequent
+message fail -- and get redriven to `scoring-dlq` -- purely because the worker was
+stuck holding a broken connection, not because the outage was still ongoing. This is
+connection hygiene, not message-level retry: the failed message itself is still left
+unacked and handled purely by SQS's redrive policy, exactly as above.
+
 **Two DLQ purposes stay on two queues.** `validation-dlq` (Session 2) already
 carries a specific meaning: business-invalid claims, explicitly routed there by the
 validation worker with a structured `reason` field it authored itself. Poison

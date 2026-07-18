@@ -14,6 +14,7 @@ import json
 from dataclasses import replace
 from typing import Any
 
+import psycopg
 import pytest
 
 from claims_pipeline.events import ClaimEvent
@@ -116,12 +117,17 @@ def test_validation_worker_acks_business_invalid_message() -> None:
 
 
 class FakeConn:
-    def __init__(self, *, raise_on_upsert: bool = False) -> None:
+    def __init__(self, *, raise_on_upsert: bool = False, rollback_fails: bool = False) -> None:
         self.raise_on_upsert = raise_on_upsert
+        self.rollback_fails = rollback_fails
         self.rolled_back = False
+        self.closed = False
         self.upserted: list[str] = []
 
     def rollback(self) -> None:
+        if self.rollback_fails:
+            self.closed = True
+            raise psycopg.OperationalError("connection already closed")
         self.rolled_back = True
 
 
@@ -162,6 +168,29 @@ def test_scoring_worker_does_not_ack_message_that_fails_processing(
     assert acked is False
     assert sqs.deleted == []
     assert conn.rolled_back
+
+
+def test_scoring_worker_survives_rollback_on_broken_connection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A transient outage can break the connection itself, not just the
+    # query -- rollback() on a dead connection raises. handle_message must
+    # not let that raise crash out; it should still return unacked so `run`
+    # can reconnect before the next message.
+    sqs = FakeSQS()
+    conn = FakeConn(rollback_fails=True)
+
+    def _boom(c: Any, claim: Any) -> None:
+        raise RuntimeError("transient downstream failure")
+
+    monkeypatch.setattr(scoring_worker.repository, "upsert_claim_and_recompute", _boom)
+    message = _message(json.dumps(VALID_CLAIM.to_dict()))
+
+    acked = scoring_worker.handle_message(sqs, conn, message, scoring_url="scoring-q-url")  # type: ignore[arg-type]
+
+    assert acked is False
+    assert sqs.deleted == []
+    assert conn.closed
 
 
 def test_scoring_worker_does_not_ack_undecodable_body() -> None:

@@ -156,6 +156,24 @@ def test_unknown_provider_explanation_404s_without_constructing_a_model_client(
     assert response.status_code == 404
 
 
+def test_known_provider_explanation_503s_without_api_key(
+    monkeypatch: pytest.MonkeyPatch, conn: psycopg.Connection[object], client: TestClient
+) -> None:
+    """Sibling of test_unknown_provider_explanation_404s_without_constructing_a_model_client:
+    a *known* provider still can't reach the model if ANTHROPIC_API_KEY isn't
+    set. `anthropic.Anthropic()` doesn't validate the key at construction
+    time, so without the dependencies.get_anthropic_client guard this would
+    hit `messages.create` and blow up with an unhandled 500 instead of a
+    clean 503.
+    """
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    _seed(conn, [("P-001", 0.70, 0.65, 0.75, 2)])
+
+    response = client.get("/providers/P-001/explanation")
+
+    assert response.status_code == 503
+
+
 def test_ranking_endpoints_never_construct_a_model_client(
     monkeypatch: pytest.MonkeyPatch, conn: psycopg.Connection[object], client: TestClient
 ) -> None:

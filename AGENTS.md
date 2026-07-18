@@ -40,9 +40,11 @@ right and the code is a bug.
 ## Quality gate
 
 Before a branch is pushed, a local gate runs **test, lint, build, and an automated
-review pass**. Only a branch that passes opens a pull request. CI re-runs the gate
-plus the eval tiers (`docs/EVAL_PLAN.md`). Merge to `main` is a squash-merge; the
-feature branch is deleted after merge.
+review pass**. Only a branch that passes opens a pull request. CI (`.github/workflows/ci.yml`)
+runs `ruff check`, `mypy`, and `pytest` against real Postgres and LocalStack service
+containers -- not a docker build and not the automated review pass, both of which are
+local-gate-only steps -- plus the eval tiers (`docs/EVAL_PLAN.md`). Merge to `main` is
+a squash-merge; the feature branch is deleted after merge.
 
 Tier 1 and Tier 2 checks block merge unconditionally. Tier 3 (faithfulness) blocks
 only on regression below the committed baseline.
