@@ -90,8 +90,8 @@ expanding scope.
   `CLAIMS_PIPELINE_DATABASE_URL` at the right endpoints. That is ADR-0008's whole
   payoff — a branch on environment inside a test discards it.
 - Infra-backed tests **skip cleanly** when LocalStack/Postgres are unreachable. Keep
-  it that way: it is what would let a future local gate run the suite in a
-  disposable worktree (see the no-mistakes note below).
+  it that way: it is what lets the no-mistakes gate run the suite in a disposable
+  worktree today (see the no-mistakes gate section below).
 
 ## Review discipline
 
@@ -114,6 +114,9 @@ Applies to every slice, before it is considered complete:
 
 Run all of these locally before considering a task complete:
 
+Activate the venv first (`source .venv/bin/activate`), Python 3.12 to match CI —
+`ruff` and `mypy` resolve only inside it.
+
 ```sh
 python -m ruff check .
 python -m mypy src
@@ -129,9 +132,11 @@ in a fresh checkout or `validate` fails on uninitialized providers.
 
 ## Quality gate
 
-There is currently **no automated local gate** enforcing the Verification Loop above
-— it is discipline, not a tool-enforced blocker, until the no-mistakes gate (below)
-is actually configured. Run it yourself before every push.
+The **no-mistakes gate** enforces the Verification Loop above on any branch pushed
+through it — `ruff`, `mypy`, `pytest -q -k "not live"`, and the `infra/eks`
+Terraform checks all run in its disposable worktree before the branch reaches
+`origin`. That enforcement only holds for branches actually pushed to the gate: a
+direct `git push origin` bypasses it, and `main` has no branch protection (D18).
 
 **CI** (`.github/workflows/ci.yml`) runs `ruff check`, `mypy`, and `pytest` against
 real Postgres and LocalStack service containers, plus the eval tiers
@@ -149,27 +154,53 @@ only on regression below the committed baseline.
   diff. Commit authority does not go to the agent.
 - Commits follow conventional prefixes: `feat:`, `fix:`, `docs:`, `refactor:`,
   `test:`, `ci:`, `chore:`.
-- **Push target: `origin`, for now.** See the no-mistakes note directly below before
-  assuming otherwise.
+- **Push target: the `no-mistakes` gate.** `git push no-mistakes <branch>`; the gate
+  forwards to `origin` once every step passes. See the no-mistakes gate section
+  below.
 - `main` currently has **no GitHub branch protection** — `origin` will accept a
   direct push. That is a gap, not a feature: treat the branch-first / PR discipline
   above as binding regardless of what GitHub will technically allow.
-- Open a PR manually (`gh pr create`) once a branch is reviewed and pushed to
-  `origin`.
+- The gate opens the PR itself once the pushed branch is on `origin`; no manual
+  `gh pr create` step.
 - Merge to `main` is a squash-merge; the branch is deleted after merge.
 - **Show each command before running it.**
 
-### The no-mistakes gate (not yet active)
+### The no-mistakes gate
 
-A `no-mistakes` remote exists on this repo (`git remote -v`) and the tool is
-installed, matching the workflow already in use on `switchyard`. **It is not
-functional here yet:** there is no `.no-mistakes.yaml`, so the gate has no
-repository-specific test, lint, or Terraform configuration to run. Do not push to
-the `no-mistakes` remote until that file exists and has been reviewed — an
-unconfigured gate is not a working one. Wiring it up (including deciding what runs
-in its disposable worktree, given this repo's infra-backed tests self-skip without
-LocalStack/Postgres) is tracked as debt in `HANDOFF.md`, not assumed to already be
-done.
+Every push goes through the gate: `git push no-mistakes <branch>`, not
+`git push origin <branch>`. The gate runs the pipeline in a disposable
+worktree, forwards the branch to `origin` only once every step passes, and
+opens the PR itself.
+
+`.no-mistakes.yaml` at the repository root configures it:
+
+- **test** — `pytest -q -k "not live"`. The infra-backed tests self-skip when
+  LocalStack/Postgres are unreachable, so the gate's floor is 76 tests (~4s)
+  and rises to 91 when the local rig happens to be up. That variance is
+  one-directional and accepted: the gate never fails for want of Docker, and
+  full-rig coverage remains CI's job, not the gate's.
+- **lint** — `ruff check`, `mypy src`, then `terraform init -backend=false`,
+  `validate`, and `fmt -check -recursive` against `infra/eks`. None of those
+  Terraform commands contacts a live account or needs credentials, so this is
+  inside hard rule 7, not a stretch of it.
+- **document / review** — an ownership map and path-scoped review rules
+  encoding the hard rules above, so a change to `scoring.py`, `infra/eks/`,
+  `docs/adr/`, or a reported number in `README.md` is reviewed against the
+  rule that governs it.
+
+**Commands are read from `main`, never from the pushed branch.** Editing
+`.no-mistakes.yaml` on a branch does not change how that branch is gated; the
+change takes effect once merged. Verify a config change by merging it, then
+pushing a subsequent branch.
+
+**The gate is opt-in, not enforcement.** `origin` still accepts a direct push
+and `main` has no branch protection (D18). Routing every push through the gate
+is discipline until that gap is closed. A direct `git push origin` is legitimate
+for a throwaway or scratch branch not headed for a PR — that's a deliberate
+choice, not a shortcut around a failing gate.
+
+Set `plugin_cache_dir` in `~/.terraformrc` before the first gated push, or the
+AWS provider re-downloads on every run.
 
 ## Decision records
 
