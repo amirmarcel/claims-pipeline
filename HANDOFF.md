@@ -76,9 +76,6 @@ deliberate limitation, documented so it is not rediscovered as a surprise.
 
 ## Open decisions for a human
 
-- **Should D17 (wiring the no-mistakes gate) be pulled ahead of D04?** D17 changes
-  how every future push happens; D04 is the higher-value technical result. Neither
-  blocks the other — flagging the ordering choice rather than deciding it here.
 - **Should `HANDOFF.md` and the debt register be referenced from `README.md`?** A
   pointer helps a reader; it also puts "here is what is unfinished" on the front page.
   Both defensible.
