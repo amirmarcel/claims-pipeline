@@ -1,0 +1,74 @@
+# Gate config for `git push no-mistakes`. See AGENTS.md § no-mistakes gate.
+#
+# TRUST: commands.*, agent, document.instructions, review.path_instructions and
+# disable_project_settings are read from the DEFAULT BRANCH, never from the
+# pushed SHA. Editing this file on a branch does not change how that branch is
+# gated -- it takes effect once merged to main.
+#
+# Absolute interpreter path below: ruff and mypy resolve only inside this
+# repo's .venv, and the gate runs commands in a disposable worktree that does
+# not inherit an activated environment. terraform is on the global PATH.
+# Machine-specific -- tracked as D20 in HANDOFF.md.
+
+commands:
+  lint: '/Users/amirmarcel/Documents/claims-pipeline/.venv/bin/python -m ruff check . && /Users/amirmarcel/Documents/claims-pipeline/.venv/bin/python -m mypy src && terraform -chdir=infra/eks init -backend=false -input=false && terraform -chdir=infra/eks validate && terraform -chdir=infra/eks fmt -check -recursive'
+
+  # -k "not live" is the same selector infra/k8s/README.md §9 uses. Infra-backed
+  # tests self-skip when LocalStack/Postgres are unreachable, so the floor is 76
+  # tests either way and the run is ~4s. See AGENTS.md for why that variance is
+  # acceptable here.
+  test: 'PYTHONPATH=src /Users/amirmarcel/Documents/claims-pipeline/.venv/bin/python -m pytest -q -k "not live"'
+
+  format: '/Users/amirmarcel/Documents/claims-pipeline/.venv/bin/python -m ruff format .'
+
+document:
+  instructions: |
+    Ownership map. Each fact has exactly one owner; everywhere else is a pointer.
+    - docs/SPEC.md owns the contracts (event, scoring, API, delivery semantics).
+      Authoritative over code: if they disagree, the code is the bug.
+    - docs/adr/ owns architectural rationale. An accepted ADR is immutable; a
+      reversal is a NEW numbered ADR that supersedes it, never an edit.
+    - HANDOFF.md owns mutable state: current position, active priority, the
+      numbered debt register. New debt is recorded there, not narrated elsewhere.
+    - README.md owns the introduction and the architecture overview only.
+    - AGENTS.md owns build conventions and the human/agent division of labor.
+    Do not create new documentation surfaces to close a perceived gap.
+
+review:
+  path_instructions:
+    - path: "src/claims_pipeline/scoring.py"
+      instructions: |
+        Must stay a pure function of claim data: no I/O, no clock, no
+        randomness, no model client, no import that could reach one.
+    - path: "src/claims_pipeline/api/routers/**"
+      instructions: |
+        The ranking read path must never import claims_pipeline.explanation or
+        construct an Anthropic client. Only the explanation endpoint calls the
+        model.
+    - path: "src/claims_pipeline/db/**"
+      instructions: |
+        Idempotency on claim_id is a hard invariant. The provider aggregate is
+        recomputed from stored claims under a per-provider advisory lock, never
+        incremented. Flag anything that weakens this under concurrent replicas.
+    - path: "infra/eks/**"
+      instructions: |
+        Never planned or applied against a live account. validate and fmt -check
+        are the verification bar. No account IDs, ARNs, cluster endpoints, or
+        credentials, including in comments and examples.
+    - path: "docs/adr/**"
+      instructions: |
+        ADRs are immutable once Accepted. Editing an accepted ADR's decision is
+        a finding; a reversal must be a new numbered ADR.
+    - path: "README.md"
+      instructions: |
+        Every number must be measured, with the conditions it was measured under
+        stated in the same place. Never round, never estimate. A kind run is
+        described as a kind run. Flag any claim that infrastructure was applied,
+        deployed, or operated -- infra/eks/ has never been applied.
+    - path: "benchmark/reports/**"
+      instructions: |
+        Same measurement rule as README.md. A reported figure must trace to a
+        reproducible generator configuration and seed.
+
+auto_fix:
+  review: 0

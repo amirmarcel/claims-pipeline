@@ -67,16 +67,15 @@ deliberate limitation, documented so it is not rediscovered as a surprise.
 | D14 | INFO | LocalStack does not fan a burst from SNS to SQS instantaneously — `validation-q` depth kept climbing for roughly a minute after all publishes were acknowledged. Emulator behavior, not real AWS behavior. | Load-test report, lesson 2; ADR-0008 | Only resolvable against real AWS |
 | D15 | INFO | Any standalone consumer (`receive_message` from a script) races the deployed workers for messages. Pausing the `ScaledObject` is required, not just scaling the Deployment to 0. Documented footgun. | `infra/k8s/README.md` §9, §11 | N/A — operational note |
 | D16 | INFO | `replicas: 1` in the worker Deployments is a pre-KEDA starting value and is not authoritative once a `ScaledObject`'s HPA reconciles. | `10-validation-worker.yaml` | N/A — operational note |
-| D17 | MED | The `no-mistakes` push gate has no `.no-mistakes.yaml`. The remote is wired to this repo and the tool is installed, but there is no repository-specific test/lint/Terraform configuration for it to run — pushing to it today would not check anything. Wiring it up requires deciding what runs in its disposable worktree (this repo's infra-backed tests self-skip without LocalStack/Postgres, so `ruff`/`mypy`/`pytest` may run there directly, unlike `switchyard`'s Go suite) versus what stays CI-only. | Confirmed via `git remote -v` / `.no-mistakes.yaml` check | Before the no-mistakes push path is used for real |
-| D18 | LOW | `main` has no GitHub branch protection configured (`gh api .../branches/main/protection` → 404). `origin` currently accepts a direct push; the branch-first / PR discipline in `AGENTS.md` is convention only, not enforced by GitHub. | Confirmed via `gh api` check | Whenever repo settings are next touched |
+| D17 | ~~MED~~ | **Closed.** `.no-mistakes.yaml` written and merged; the gate runs `pytest -k "not live"`, `ruff`, `mypy`, and the `infra/eks` Terraform checks. Commands are read from `main`. Interpreter paths are absolute and machine-specific — see D20. | — | Closed |
+| D18 | MED | `main` has no GitHub branch protection configured (`gh api .../branches/main/protection` → 404). `origin` currently accepts a direct push; the branch-first / PR discipline in `AGENTS.md` is convention only, not enforced by GitHub. Now that the no-mistakes gate is wired (D17), an unenforced gate is a weaker position than no gate at all — it invites the assumption that a push was checked when `origin` still accepts one that bypassed it entirely. | Confirmed via `gh api` check | Whenever repo settings are next touched |
+| D19 | MED | Dependency floors are unbounded (`mypy>=1.11` resolved to 2.3.0 on a fresh install). `AGENTS.md` states dependencies are pinned and reproducible builds are a requirement; they are not. A major-version bump in a type checker can fail CI with no commit to blame. | `pyproject.toml`; observed during venv rebuild | Next dependency change, or first unexplained CI failure |
+| D20 | MED | `.no-mistakes.yaml` hardcodes an absolute path to a machine-specific `.venv`. The gate is unusable from any other checkout or machine without editing a committed file. | `.no-mistakes.yaml` | If the repo is cloned elsewhere, or a second contributor appears |
 
 ---
 
 ## Open decisions for a human
 
-- **Should D17 (wiring the no-mistakes gate) be pulled ahead of D04?** D17 changes
-  how every future push happens; D04 is the higher-value technical result. Neither
-  blocks the other — flagging the ordering choice rather than deciding it here.
 - **Should `HANDOFF.md` and the debt register be referenced from `README.md`?** A
   pointer helps a reader; it also puts "here is what is unfinished" on the front page.
   Both defensible.
@@ -90,4 +89,5 @@ deliberate limitation, documented so it is not rediscovered as a surprise.
 
 Newest first. One entry per completed slice; append, do not reorder.
 
+- Configured the `no-mistakes` push gate (`.no-mistakes.yaml`: test, lint, document, and path-scoped review rules) and closed D17. Cost: opened D19 (unbounded dependency floors) and D20 (hardcoded machine-specific interpreter path), and raised D18 to MED since an unenforced gate now reads as a checked push when it may not be.
 - Replaced `AGENTS.md` with an expanded contributor contract (hard rules, scope guardrails, verification loop, git/no-mistakes workflow) and introduced `HANDOFF.md` as the mutable state/debt register it references.
