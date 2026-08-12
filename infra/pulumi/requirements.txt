@@ -1,0 +1,5 @@
+# Exact pins, not floors -- see HANDOFF.md D19 for the unbounded-floor
+# problem this repo already has elsewhere in pyproject.toml. Do not add to
+# it here.
+pulumi==3.256.0
+pulumi-aws==7.41.0
