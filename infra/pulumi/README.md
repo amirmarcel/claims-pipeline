@@ -20,7 +20,7 @@ Same posture as `infra/eks/README.md`'s table, for the slice this program covers
 
 | Concern | This program | Why |
 |---|---|---|
-| EKS cluster / OIDC issuer | **Assumed** — `oidcIssuerUrl` is a required Pulumi config value, not a live `aws.eks.get_cluster` lookup | Deliberate boundary vs. the Terraform version, which does look the cluster up live. See ADR-0015 axis 5. |
+| EKS cluster / OIDC issuer | **Assumed** — `oidcIssuerUrl` is a required Pulumi config value, not a live `aws.eks.get_cluster` lookup | Deliberate boundary vs. the Terraform version, which does look the cluster up live. See ADR-0015 axis 4. |
 | OIDC provider thumbprint | **Assumed** — `oidcThumbprint` config value, defaults to a 40-zero placeholder | The Terraform version derives this from a live TLS handshake against the issuer (`data "tls_certificate"`); reproducing that here would only ever fail against a placeholder issuer URL, so it's config too. Replace with the real thumbprint before any real apply. |
 | SNS topic, SQS queues, DLQs, redrive policies | **Ported** (`__main__.py`) | Mirrors `sns_sqs.tf` by name and topology |
 | IAM (IRSA roles for validation-worker, scoring-worker, api) | **Ported** (`__main__.py`) | Least-privilege, scoped per-workload, same as `iam.tf` |

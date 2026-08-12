@@ -140,6 +140,7 @@ The architecturally significant choices are recorded as ADRs in `docs/adr/`:
 - [ADR-0012](docs/adr/0012-tier3-faithfulness-eval-harness.md) — Tier 3 faithfulness eval harness: judge model, baseline, and threshold
 - [ADR-0013](docs/adr/0013-kind-for-local-eks-as-artifact.md) — kind for local Kubernetes validation; EKS as a reviewable, unapplied artifact
 - [ADR-0014](docs/adr/0014-keda-autoscaling-tuning.md) — KEDA autoscaling tuning: target depth, replica bounds, scale-down pacing
+- [ADR-0015](docs/adr/0015-pulumi-for-sns-sqs-iam.md) — Pulumi port of SNS/SQS + IRSA IAM, alongside Terraform
 
 ## API surface
 
@@ -241,7 +242,7 @@ docs/images/         # committed graphs and the trace waterfall screenshot (Sess
 infra/local/         # docker-compose rig (LocalStack + Postgres) and provisioning script
 infra/k8s/           # kind cluster config, manifests, KEDA ScaledObjects (ADR-0014), and runbook
 infra/eks/           # EKS Terraform artifact (SNS/SQS/DLQs, IRSA IAM, RDS) -- not applied
-infra/pulumi/        # Pulumi Python port of SNS/SQS + IRSA IAM (ADR-0015); coexists with infra/eks/
+infra/pulumi/        # Pulumi Python port of SNS/SQS + IRSA IAM (ADR-0015) -- not applied
 Dockerfile           # shared image for the API and both workers (infra/k8s/README.md)
 src/claims_pipeline/
   events.py          # the claim event contract (SPEC.md §1)

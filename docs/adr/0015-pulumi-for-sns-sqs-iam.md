@@ -1,6 +1,6 @@
 # 0015 — Pulumi port of SNS/SQS + IRSA IAM, alongside Terraform
 
-**Status:** _(unset — human sets on review)_
+**Status:** Accepted
 
 ## Context
 
@@ -15,7 +15,7 @@ explicitly); `pulumi up` against a real account does not run, same as
 
 The two programs coexist. Neither replaces the other. This ADR covers why a
 second infrastructure-as-code tool was introduced for the same topology, and
-five axes where the two programs' answers to the same problem diverge.
+four axes where the two programs' answers to the same problem diverge.
 
 ## Decision
 
@@ -62,28 +62,28 @@ solves multi-contributor state in this session; Pulumi's version of the
 problem is scoped down to "single machine" rather than "nonexistent,"
 which is a smaller version of the same gap, not a different one.
 
-### 3. Secret handling / encryption in state
+On secret handling: Terraform state is plaintext by default — anything
+that flows through a resource's attributes (including a password, if one
+were ever passed as a plain variable) is readable in the state file.
+`rds.tf` sidesteps this entirely for the one place it would matter:
+`manage_master_user_password` means the RDS master password is
+AWS-generated and stored in Secrets Manager, never entering a Terraform
+variable, plan, or state file at all — avoiding the plaintext-state problem
+by never letting the secret reach Terraform's state in the first place,
+rather than by encrypting the state. Pulumi's local backend, by contrast,
+encrypts values marked as `pulumi.Secret` (or config set with `--secret`)
+using a passphrase-derived key (`PULUMI_CONFIG_PASSPHRASE`) by default —
+state-level encryption Terraform's default backend doesn't have. This
+program doesn't currently need it: no value here is a real secret
+(`oidcIssuerUrl` and `oidcThumbprint` are identifiers, not credentials), so
+this axis is currently moot in practice, but it is a real capability
+difference that would matter the moment this program grew a genuine
+secret — unlike `rds.tf`'s dodge, Pulumi's answer is "encrypt it in
+state," not "never let it reach state." This is a capability difference not
+yet exercised, not a divergence in how the two programs are currently
+written.
 
-Terraform state is plaintext by default — anything that flows through a
-resource's attributes (including a password, if one were ever passed as a
-plain variable) is readable in the state file. `rds.tf` sidesteps this
-entirely for the one place it would matter: `manage_master_user_password`
-means the RDS master password is AWS-generated and stored in Secrets
-Manager, never entering a Terraform variable, plan, or state file at all —
-avoiding the plaintext-state problem by never letting the secret reach
-Terraform's state in the first place, rather than by encrypting the state.
-
-Pulumi's local backend encrypts values marked as `pulumi.Secret` (or config
-set with `--secret`) using a passphrase-derived key
-(`PULUMI_CONFIG_PASSPHRASE`) by default — state-level encryption Terraform's
-default backend doesn't have. This program doesn't currently need it: no
-value here is a real secret (`oidcIssuerUrl` and `oidcThumbprint` are
-identifiers, not credentials), so this axis is currently moot in practice,
-but is a real capability difference that would matter the moment this
-program grew a genuine secret — unlike `rds.tf`'s dodge, Pulumi's answer is
-"encrypt it in state," not "never let it reach state."
-
-### 4. Reviewability and the verification bar
+### 3. Reviewability and the verification bar
 
 Terraform's bar here is `terraform validate` + `terraform fmt -check`
 (`infra/eks/README.md`), both fully static — no provider contacted, ever,
@@ -115,7 +115,7 @@ the three-tier split this produced:
    doubly moot given finding (1) — even an enabled IAM service wouldn't have
    been exercised by preview on a fresh stack.
 
-### 5. OIDC issuer as configuration, not a live lookup
+### 4. OIDC issuer as configuration, not a live lookup
 
 `iam.tf` calls `data "aws_eks_cluster" "this"` to read the cluster's OIDC
 issuer URL live, then `data "tls_certificate"` to fetch that issuer's TLS
@@ -146,7 +146,7 @@ in a new ADR, not a silent edit here.
    disabled/unreachable service.** Verified by pointing
    `localstackEndpoint` at `http://localhost:1` (nothing listening) and
    observing an identical plan to the one against the real LocalStack
-   endpoint. This is the single fact that reshaped this ADR's axis 4 and
+   endpoint. This is the single fact that reshaped this ADR's axis 3 and
    `infra/pulumi/README.md`'s verification table from a two-way
    SNS/SQS-vs-IAM split (mirroring LocalStack's service availability) into
    a three-tier split where tier 1 covers all resources equally and
