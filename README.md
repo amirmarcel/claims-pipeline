@@ -241,6 +241,7 @@ docs/images/         # committed graphs and the trace waterfall screenshot (Sess
 infra/local/         # docker-compose rig (LocalStack + Postgres) and provisioning script
 infra/k8s/           # kind cluster config, manifests, KEDA ScaledObjects (ADR-0014), and runbook
 infra/eks/           # EKS Terraform artifact (SNS/SQS/DLQs, IRSA IAM, RDS) -- not applied
+infra/pulumi/        # Pulumi Python port of SNS/SQS + IRSA IAM (ADR-0015); coexists with infra/eks/
 Dockerfile           # shared image for the API and both workers (infra/k8s/README.md)
 src/claims_pipeline/
   events.py          # the claim event contract (SPEC.md §1)
