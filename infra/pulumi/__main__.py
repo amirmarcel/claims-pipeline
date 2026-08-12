@@ -17,7 +17,7 @@ import pulumi_aws as aws
 config = pulumi.Config()
 
 # Deliberately NOT a live `aws.eks.get_cluster` lookup (unlike iam.tf's
-# `data "aws_eks_cluster" "this"`). See ADR-0015 axis 5: this program takes
+# `data "aws_eks_cluster" "this"`). See ADR-0015 axis 4: this program takes
 # the OIDC issuer as configuration precisely so it never needs a reachable
 # EKS control plane to preview. Set with:
 #   pulumi config set oidcIssuerUrl https://oidc.eks.<region>.amazonaws.com/id/<id>
