@@ -1,0 +1,9 @@
+name: claims-pipeline-eks
+runtime:
+  name: python
+  options:
+    virtualenv: .venv
+description: >-
+  Pulumi port of infra/eks/sns_sqs.tf and infra/eks/iam.tf (SNS/SQS topology
+  and IRSA IAM). Coexists with infra/eks/; not applied. See
+  docs/adr/0015-pulumi-for-sns-sqs-iam.md.

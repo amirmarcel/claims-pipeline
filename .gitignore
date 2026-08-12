@@ -29,5 +29,10 @@ infra/eks/*.tfstate
 infra/eks/*.tfstate.*
 infra/eks/*.tfplan
 
+# Pulumi (infra/pulumi/) -- local file-backend state and per-stack config,
+# never committed (infra/pulumi/README.md "Local backend").
+infra/pulumi/.pulumi-state/
+infra/pulumi/Pulumi.*.yaml
+
 # benchmark run artifacts (reports themselves are committed deliberately per-run; raw logs are not)
 benchmark/reports/*.log

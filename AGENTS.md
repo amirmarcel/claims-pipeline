@@ -212,7 +212,7 @@ AWS provider re-downloads on every run.
   accepted.
 - An ADR is **immutable once accepted**. A later decision that reverses it is a new
   ADR that supersedes it (ADR-0000).
-- Next free number: **0015**.
+- Next free number: **0016**.
 
 ## Handoff maintenance
 
