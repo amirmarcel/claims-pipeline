@@ -55,6 +55,14 @@ review:
         Never planned or applied against a live account. validate and fmt -check
         are the verification bar. No account IDs, ARNs, cluster endpoints, or
         credentials, including in comments and examples.
+    - path: "infra/pulumi/**"
+      instructions: |
+        Never previewed or upped against a live account -- pulumi preview against
+        LocalStack or with no configured credentials is fine, pulumi up against a
+        real AWS account is not. See AGENTS.md hard rule 7, ADR-0013 (kind-as-
+        artifact / no live cluster), and the Pulumi ADR (not yet written -- do not
+        invent a number for it). No account IDs, ARNs, cluster endpoints, or
+        credentials, including in comments and examples.
     - path: "docs/adr/**"
       instructions: |
         ADRs are immutable once Accepted. Editing an accepted ADR's decision is

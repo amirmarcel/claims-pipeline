@@ -44,10 +44,13 @@ quality gates. Implementation is written *against* those artifacts.
    `infra/k8s/02-secret.example.yaml` documents the *shape*; the real secret is
    created imperatively (`kubectl create secret`, `infra/k8s/README.md` §5).
    Placeholders in committed files must be obviously placeholders.
-7. **No cloud provisioning.** Terraform in `infra/eks/` is validated and formatted,
-   never planned against a live account and never applied. Do not run `terraform
-   plan` or `terraform apply`. Do not create AWS resources. See ADR-0013 for why —
-   this is a cost decision, not an oversight, and reversing it is a human's call.
+7. **No cloud provisioning against a live account.** `terraform plan`/
+   `preview` and `pulumi preview` may run against LocalStack or with no
+   configured credentials, since neither contacts AWS or incurs cost. Do
+   not run either against a real AWS account, and do not `terraform apply`
+   or `pulumi up` against one. Do not create AWS resources. See ADR-0013
+   for why — this is a cost decision, not an oversight, and reversing it is
+   a human's call.
 8. **Everything runs locally.** LocalStack, Postgres, and a `kind` cluster. If a task
    cannot be demonstrated on a laptop with no cloud account, it is out of scope for
    now — say so rather than reaching for a real account.
